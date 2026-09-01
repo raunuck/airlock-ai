@@ -1,9 +1,8 @@
-# Agent Loop — How it works
+# Agent Loop
 
-Basic idea: instead of one LLM call and done, the agent runs in a loop.
-It thinks → picks a tool → runs it → looks at the result → thinks again → repeat until done.
+Instead of one LLM call and done, the agent keeps going in a loop until the task is finished. It thinks, picks a tool, runs it, sees the result, then thinks again.
 
-## The loop (pseudocode)
+## Pseudocode
 
 ```
 function run_agent(user_goal):
@@ -12,52 +11,33 @@ function run_agent(user_goal):
 
     repeat up to 5 times:
 
-        # think
-        ask LLM: "given the goal and everything so far, what's the next step?"
-        
-        LLM replies with one of two things:
+        ask LLM: "given the goal and history so far, what do we do next?"
+
+        LLM replies with either:
             CALL_TOOL: <tool_name> : <input>
             DONE: <final answer>
 
-        if DONE → return the answer, we're finished ✓
+        if DONE, return the answer and stop
 
         if CALL_TOOL:
-            figure out which tool and what input
-            run that tool
-            add the result back to history
-            loop again
+            run the tool with the given input
+            add result to history
+            go back to top
 
-    if 5 steps done and still no DONE:
-        return "couldn't complete the task"
+    if still not done after 5 steps:
+        return "could not complete the task"
 ```
 
-## Tools the agent can call
+## Tools available
 
 | Tool | What it does |
 |------|-------------|
-| `search_docs` | searches Chroma for relevant SOP/manual chunks |
-| `run_code` | runs generated code in a sandboxed subprocess |
-| `extract_text` | pytesseract OCR on an uploaded image |
-| `write_docx` | writes findings into a .docx approval note |
+| `search_docs` | pulls relevant chunks from Chroma |
+| `run_code` | runs code in a sandboxed subprocess |
+| `extract_text` | OCR on an uploaded image using pytesseract |
+| `write_docx` | creates the approval note as a .docx file |
 
-## Example — Scenario 2 (approval note from scanned report)
-
-```
-User: "Read this inspection report image and draft an approval note"
-
-→ CALL_TOOL: extract_text : report.jpg
-   result: [raw text from the image]
-
-→ CALL_TOOL: search_docs : "valve inspection clause 4.2"
-   result: [relevant SOP chunks from Chroma]
-
-→ CALL_TOOL: write_docx : "findings: ..."
-   result: approval_note.docx created
-
-→ DONE: approval note saved at approval_note.docx ✓
-```
-
-## A few things to keep in mind
-- Every step should be logged to SQLite (Raunak's part) — this is what the trace view reads from, don't skip it
-- The LLM sometimes doesn't follow the CALL_TOOL/DONE format exactly — few-shot examples in the system prompt fix this most of the time
-- 5 step limit is intentional — prevents infinite loops during the demo
+## Notes
+- Each step needs to be logged to SQLite so the trace view works. Raunak is handling the DB part but the logging call has to happen inside this loop.
+- The LLM sometimes won't follow the CALL_TOOL/DONE format properly. Few-shot examples in the system prompt usually fix this.
+- 5 step cap is intentional so we don't get stuck in a loop during the demo.
