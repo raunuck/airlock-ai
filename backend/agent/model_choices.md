@@ -1,33 +1,27 @@
 # Model Choices
 
-Okay so for MRPL everything has to stay on-premise — no cloud, no external API calls. 
-Keeping that in mind, here's what I think we should go with:
+Since MRPL needs everything on-premise, no cloud calls at all, here's what I'm going with and why:
 
-## The 3 model slots
+## Models
 
-**General reasoning + RAG (document Q&A)**
-→ `qwen2.5:7b`
-Good at reading long SOPs, following instructions, answering grounded questions. This is our main workhorse.
+**General reasoning + RAG:** `qwen2.5:7b`
+Handles SOPs and document questions well. Will be the main model for most tasks.
 
-**Coding tasks**
-→ `qwen2.5-coder:7b`
-Fine-tuned specifically for code — noticeably better than the general model when the task is write/debug/run code.
+**Coding tasks:** `qwen2.5-coder:7b`
+Trained specifically on code so it's noticeably better than the general model for write/debug tasks. Worth having as a separate model.
 
-**Image / scanned documents**
-→ `pytesseract` for now, `llava:7b` later
-LLaVA can read images natively (actual multimodal), but for this week pytesseract does the job as a placeholder. We should be honest about this in the demo.
+**Images and scanned docs:** `pytesseract` this week, `llava:7b` later
+LLaVA is actually multimodal so it can read images directly. For now pytesseract works fine as a placeholder and is one less thing to debug. We can say this out loud in the demo, not a big deal.
 
-## Why only open-weight models
-MRPL's whole point is sovereign + confidential. OpenAI/Gemini are out by definition. Qwen and LLaVA are open-weight, run fully through Ollama, nothing leaves the machine.
+## Why not use OpenAI or anything cloud based
+MRPL's whole requirement is confidential and sovereign. OpenAI/Gemini are off the table by default. Qwen and LLaVA run fully through Ollama so nothing leaves the machine.
 
-## Hardware note
-Quantized 7B models need ~6-8GB RAM. 
-→ Test on the actual demo laptop on Day 1 itself
-→ If it's lagging, drop to `qwen2.5:3b` — don't wait till Day 4 to find out it's slow
+## Hardware
+7B quantized models need around 6-8GB RAM. Please test on the actual demo laptop early, not on Day 4. If it's too slow just drop to `qwen2.5:3b`.
 
-## Ollama pulls needed
+## Ollama pulls
 ```
 ollama pull qwen2.5:7b
 ollama pull qwen2.5-coder:7b
-ollama pull llava:7b        # for Day 5 onwards
+ollama pull llava:7b
 ```
