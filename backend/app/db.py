@@ -13,7 +13,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS model_registry (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             model_name TEXT NOT NULL,
-            task_type TEXT NOT NULL   -- e.g. 'code', 'document', 'rag-query'
+            task_type TEXT NOT NULL   -- e.g. 'code', 'document', 'rag_query'
         )
     """)
     conn.execute("""
@@ -37,7 +37,15 @@ def log_task(task_type: str, model_used: str, prompt: str, response: str):
     )
     conn.commit()
     conn.close()
-    
+
+def get_model_for_task(task_type: str) -> str:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT model_name FROM model_registry WHERE task_type = ? LIMIT 1", (task_type,)
+    ).fetchone()
+    conn.close()
+    return row["model_name"] if row else "qwen2.5:7b"  # fallback if nothing registered
+
 def seed_registry():
     conn = get_connection()
     existing = conn.execute("SELECT COUNT(*) FROM model_registry").fetchone()[0]
