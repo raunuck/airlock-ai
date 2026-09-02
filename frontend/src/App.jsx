@@ -7,15 +7,21 @@ function App() {
 
   async function submit() {
     setLoading(true);
+    setResult(null);
     try {
       const res = await fetch("http://localhost:8000/task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-      setResult(await res.json());
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ detail: data.detail || "An error occurred" });
+      } else {
+        setResult(data);
+      }
     } catch (err) {
-      setResult({ error: "Backend unreachable — is uvicorn running?" });
+      setResult({ detail: "Backend unreachable — is uvicorn running?" });
     }
     setLoading(false);
   }
@@ -40,12 +46,14 @@ function App() {
 
       {result && (
         <div className="mt-4 p-3 border rounded bg-gray-50">
-          {result.error ? (
-            <p className="text-red-600">{result.error}</p>
+          {result.detail ? (
+            <p className="text-red-600">{result.detail}</p>
           ) : (
             <>
-              <span className="text-xs text-gray-500">Model: {result.model_used}</span>
-              <p className="mt-1">{result.response}</p>
+              <span className="text-xs text-gray-500">
+                Task: {result.task_type} · Model: {result.model_used}
+              </span>
+              <p className="mt-1 whitespace-pre-wrap">{result.response}</p>
             </>
           )}
         </div>
