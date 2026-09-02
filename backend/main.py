@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from llm_client import prompt as call_model
-from agent.task_classifier import classify_task
-from agent.model_choices import get_model_for_task
+from app.classifier import classify_task
+from backend.agent.model_choices import get_model_for_task
 
 app = FastAPI()
 
