@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 workbench.db
 venv/
+.venv/
+.venv
