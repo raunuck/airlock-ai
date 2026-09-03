@@ -1,13 +1,19 @@
 import chromadb
 from pathlib import Path
 
-client = chromadb.PersistentClient(path="./chroma_db")
+# Resolve the project root so ingestion works regardless of the current working directory.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+CHROMA_DIR = BASE_DIR / "chroma_db"
+DATA_DIR = BASE_DIR / "data"
+
+
+client = chromadb.PersistentClient(path=str(CHROMA_DIR))
 
 collection = client.get_or_create_collection("sop_docs")
 
-data_folder = Path("./data")
 
-files = list(data_folder.glob("*.txt"))
+files = list(DATA_DIR.glob("*.txt"))
 
 documents = []
 metadatas = []
