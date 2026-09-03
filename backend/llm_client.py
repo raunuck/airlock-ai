@@ -14,7 +14,7 @@ DEFAULT_MODEL = "general"
 
 
 # --------------------------------------------------
-# Chat with Ollama
+# Core Ollama chat wrapper
 # --------------------------------------------------
 
 def chat(
@@ -45,9 +45,15 @@ def chat(
         }
     """
 
-    model_name = MODELS.get(model_key, MODELS[DEFAULT_MODEL])
+    model_name = MODELS.get(model_key)
 
-    final_messages = messages.copy()
+    if model_name is None:
+        raise ValueError(f"Invalid model_key: {model_key}."
+                         f" Expected one of: {list(MODELS.keys())}"
+        )
+    
+
+    final_messages = list(messages)  # Make a copy to avoid modifying the original list
 
     if system:
         final_messages.insert(
@@ -70,7 +76,11 @@ def chat(
         }
 
     except Exception as e:
-        raise RuntimeError(f"Ollama request failed: {e}") from e
+        raise RuntimeError(
+            f"Failed to communicate with Ollama. "
+            f"Please make sure the Ollama server is running."
+            f"Original error: {e}"
+        ) from e
 
 
 # --------------------------------------------------
