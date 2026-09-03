@@ -1,0 +1,19 @@
+Pump Maintenance Standard Operating Procedure
+
+Purpose:
+To ensure safe and reliable operation of industrial pumps.
+
+Maintenance Steps:
+1. Switch off the pump before beginning maintenance.
+2. Isolate the pump from all energy sources.
+3. Check the pump casing for cracks or visible damage.
+4. Inspect the pump connections for leakage.
+5. Check the lubrication level.
+6. Record all maintenance findings.
+7. Report abnormal conditions to the maintenance supervisor.
+
+Safety:
+Always follow equipment isolation and safety procedures before maintenance.
+
+Approval:
+Maintenance findings must be reviewed by the responsible supervisor.

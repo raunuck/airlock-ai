@@ -1,0 +1,18 @@
+SOP: Equipment Safety Procedure
+
+Purpose:
+This procedure defines the basic safety requirements for working with industrial equipment.
+
+Safety Steps:
+1. Wear the required personal protective equipment before starting work.
+2. Ensure the equipment is switched off before inspection or maintenance.
+3. Isolate the equipment from all energy sources.
+4. Place warning signs around the work area.
+5. Do not operate equipment while maintenance work is in progress.
+6. Report unsafe conditions to the safety supervisor.
+
+Emergency:
+In case of an emergency, stop the work immediately and inform the responsible supervisor.
+
+Approval:
+All safety incidents and observations must be recorded and reviewed.

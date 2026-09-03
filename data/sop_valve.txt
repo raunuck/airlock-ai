@@ -1,0 +1,18 @@
+SOP: Valve Inspection Procedure
+
+Purpose:
+This procedure describes the standard process for inspecting industrial valves.
+
+Inspection Steps:
+1. Ensure the equipment is safely isolated before inspection.
+2. Check the valve body for visible damage, cracks, or corrosion.
+3. Inspect the valve connections for leakage.
+4. Verify that the valve opens and closes correctly.
+5. Record all inspection findings.
+6. Report any abnormal condition to the maintenance supervisor.
+
+Safety:
+Always follow the required safety and isolation procedures before beginning inspection.
+
+Approval:
+Inspection findings must be reviewed and approved by the responsible supervisor.

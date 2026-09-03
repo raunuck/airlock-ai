@@ -4,3 +4,4 @@ workbench.db
 venv/
 .venv/
 .venv
+chroma_db/

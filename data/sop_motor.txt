@@ -1,0 +1,23 @@
+Motor Maintenance Standard Operating Procedure
+
+Purpose:
+
+To ensure safe and reliable operation of industrial motors.
+
+Maintenance Steps:
+
+1. Switch off the motor before beginning maintenance.
+2. Isolate the motor from all electrical energy sources.
+3. Check the motor casing for visible damage or cracks.
+4. Inspect electrical connections for loose or damaged wires.
+5. Check motor bearings for unusual noise or vibration.
+6. Record all maintenance findings.
+7. Report abnormal conditions to the maintenance supervisor.
+
+Safety:
+
+Always follow electrical isolation and safety procedures before maintenance.
+
+Approval:
+
+Motor maintenance findings must be reviewed by the responsible supervisor.
