@@ -1,6 +1,6 @@
 from pathlib import Path
 import chromadb
-from backend.llm_client import prompt as llm_prompt
+from llm_client import prompt as llm_prompt
 
 # Connect to ChromaDB
 # Resolve the database path relative to the backend directory
@@ -10,7 +10,7 @@ CHROMA_DIR = BASE_DIR / "chroma_db"
 client = chromadb.PersistentClient(path=str(CHROMA_DIR))
 
 # Get the same collection used in ingestion.py
-collection = client.get_collection(name="sop_docs")
+collection = client.get_or_create_collection(name="sop_docs")
 
 
 def search_documents(query):

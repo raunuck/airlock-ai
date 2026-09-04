@@ -24,4 +24,6 @@ MRPL's whole requirement is confidential and sovereign. OpenAI/Gemini are off th
 ollama pull qwen2.5:7b
 ollama pull qwen2.5-coder:7b
 ollama pull llava:7b
+ollama pull qwen2.5:3b
+ollama pull qwen2.5-coder:3b
 ```

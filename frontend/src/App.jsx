@@ -45,6 +45,20 @@ function App() {
     setResult(null);
   }
 
+  // Safely format error details whether they are strings, objects, or validation arrays
+  const renderError = (detail) => {
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((err, idx) => (
+        <div key={idx} className="mt-1">
+          {err.loc ? <span className="font-mono text-xs opacity-75">{err.loc.join(" → ")}: </span> : null}
+          <span>{err.msg}</span>
+        </div>
+      ));
+    }
+    return JSON.stringify(detail, null, 2);
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -158,9 +172,9 @@ function App() {
                     <p className="text-sm font-medium text-red-300">
                       Request failed
                     </p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-red-200">
-                      {result.detail}
-                    </p>
+                    <div className="mt-2 text-sm text-red-200">
+                      {renderError(result.detail)}
+                    </div>
                   </div>
                 ) : (
                   <>
