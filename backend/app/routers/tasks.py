@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
-from app.schemas import TaskRequest, TaskResponse
-from app.db import log_task
-from app.classifier import classify_task
-from llm_client import prompt as llm_prompt
+from backend.app.schemas import TaskRequest, TaskResponse
+from backend.app.db import log_task
+from backend.app.classifier import classify_task
+from backend.llm_client import prompt as llm_prompt
 
 router = APIRouter()
 

@@ -1,10 +1,8 @@
-import sys
 from pathlib import Path
 
 # make sure backend/ is on the path so imports work
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from rag.retrieval import answer_rag_query
+from backend.rag.retrieval import answer_rag_query
 from backend.llm_client import prompt as llm_prompt
 
 

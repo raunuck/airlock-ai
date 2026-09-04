@@ -43,7 +43,7 @@ def unpack_results(results: dict) -> list[dict]:
         )
     ]
 
-def get_relevant_chunks(query: str, max_distance: float = 1.0) -> list[dict]:
+def get_relevant_chunks(query: str, max_distance: float = 1.15) -> list[dict]:
     """
     Retrieve only the chunks that are similar enough to the query.
     """
@@ -65,17 +65,31 @@ def build_rag_prompt(question: str, chunks: list[dict]) -> tuple[str, str]:
     """
     system_prompt = (
         "You are an assistant answering questions using the organization's "
-        "Standard Operating Procedures (SOPs). Use ONLY the information in "
-        "the provided context — never rely on prior knowledge. If the answer "
-        "isn't in the context, say so directly instead of guessing. When you "
-        "do answer, name which source(s) you used."
+        "Standard Operating Procedures (SOPs).\n\n"
+
+        "Use ONLY the information provided in the retrieved context.\n"
+
+        "Do NOT add safety practices, industry standards, or prior knowledge "
+        "that are not explicitly written in the context.\n"
+
+        "If something is not mentioned, clearly state that it is not available "
+        "in the SOPs.\n"
+
+        "When answering, stay as close as possible to the wording of the SOPs "
+        "instead of paraphrasing with new concepts.\n"
+
+        "Always end with the source file names."
     )
 
     if not chunks:
         user_prompt = (
-            f"No relevant SOP content was found for this question.\n\n"
+            f"Context:\n{context}\n\n"
             f"Question: {question}\n\n"
-            f"Tell the user this information isn't available in the knowledge base."
+            "Answer using ONLY the information provided in the context above. "
+            "Do not add any external knowledge or assumptions. "
+            "If the context does not contain the answer, reply exactly: "
+            "'I don't have this information in the provided SOP documents.'\n\n"
+            f"End your answer with:\nSource(s): {', '.join(sources_seen)}"
         )
         return system_prompt, user_prompt
 

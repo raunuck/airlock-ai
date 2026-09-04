@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db import init_db, seed_registry
-from app.routers.tasks import router as tasks_router
+from backend.app.db import init_db, seed_registry
+from backend.app.routers.tasks import router as tasks_router
 
 app = FastAPI(title="Sovereign Workbench API")
 

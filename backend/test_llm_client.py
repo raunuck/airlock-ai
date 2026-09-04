@@ -5,7 +5,7 @@ Run:
     python test_llm_client.py
 """
 
-from llm_client import prompt
+from backend.llm_client import prompt
 
 print("=" * 50)
 print("Testing General Model")
