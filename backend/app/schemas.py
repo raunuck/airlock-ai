@@ -8,4 +8,4 @@ class TaskResponse(BaseModel):
     model_used: str
     task_type: str
     response: str
-    sources: Optional[list[str]] = None
+    sources: list[str] | None = None
