@@ -1,14 +1,10 @@
-from pathlib import Path
-
-# make sure backend/ is on the path so imports work
-
 from backend.rag.retrieval import answer_rag_query
 from backend.llm_client import prompt as llm_prompt
+from backend.app.tools.docgen import write_approval_note
+from backend.app.tools.sandbox import run_code_sandboxed
 
 
-# Tools
-# Each tool is just a plain function that takes a string and returns a string.
-# Add more tools here as the week goes on (run_code, write_docx, extract_text).
+# tools
 
 def search_docs(query: str) -> str:
     result = answer_rag_query(query)
@@ -17,24 +13,35 @@ def search_docs(query: str) -> str:
     sources = ", ".join(result["sources"])
     return f"{result['answer']}\n\nSource(s): {sources}"
 
+def write_docx(findings: str) -> str:
+    path = write_approval_note(findings)
+    return f"Approval note saved at {path}"
+
+def run_code(code: str) -> str:
+    result = run_code_sandboxed(code)
+    if result["passed"]:
+        return f"Code ran successfully.\nOutput: {result['stdout']}"
+    return f"Code failed.\nError: {result['stderr']}"
+
 
 TOOLS = {
     "search_docs": search_docs,
-    # "run_code": run_code,       # Viral's part - Day 4
-    # "extract_text": extract_text, # Arya's part - Day 5
-    # "write_docx": write_docx,   # Viral's part - Day 4
+    "write_docx": write_docx,
+    "run_code": run_code,
 }
 
 
-# Agent loop 
+# agent loop
 
 SYSTEM_PROMPT = """You are an agent helping with industrial tasks at an oil refinery.
 You have access to the following tools:
 
 - search_docs: searches the local SOP knowledge base and returns relevant content with citations
+- write_docx: takes a findings summary and creates an approval note as a .docx file
+- run_code: runs a python code snippet and returns the output
 
-To use a tool, respond EXACTLY like this (nothing else on that line):
-CALL_TOOL: search_docs : your query here
+To use a tool, respond EXACTLY like this:
+CALL_TOOL: tool_name : input here
 
 When you have enough information to answer, respond EXACTLY like this:
 DONE: your final answer here
@@ -51,16 +58,6 @@ Assistant: DONE: Based on the SOPs, the safety procedures are...
 
 
 def run_agent(user_goal: str, max_steps: int = 5) -> dict:
-    """
-    Run the agent loop for a given user goal.
-
-    Returns:
-        {
-            "answer": str,
-            "steps": list of dicts with step-by-step trace,
-            "completed": bool
-        }
-    """
     history = [
         {"role": "user", "content": user_goal}
     ]
@@ -69,7 +66,6 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
 
     for step_num in range(1, max_steps + 1):
 
-        # ask the LLM what to do next
         response = llm_prompt(
             text=history[-1]["content"] if step_num == 1 else "Continue.",
             system=SYSTEM_PROMPT,
@@ -78,7 +74,6 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
 
         plan = response["content"].strip()
 
-        # log this step
         steps.append({
             "step": step_num,
             "llm_output": plan,
@@ -86,7 +81,6 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
             "tool_result": None,
         })
 
-        # check if done
         if plan.startswith("DONE:"):
             final_answer = plan.replace("DONE:", "").strip()
             steps[-1]["final"] = True
@@ -96,7 +90,6 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
                 "completed": True,
             }
 
-        # check if tool call
         if plan.startswith("CALL_TOOL:"):
             try:
                 _, tool_name, tool_input = plan.split(":", 2)
@@ -110,20 +103,17 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
                 continue
 
             if tool_name not in TOOLS:
-                tool_result = f"Tool '{tool_name}' not found. Available tools: {list(TOOLS.keys())}"
+                tool_result = f"Tool '{tool_name}' not found. Available: {list(TOOLS.keys())}"
             else:
                 tool_result = TOOLS[tool_name](tool_input)
 
-            # update step log
             steps[-1]["tool_called"] = tool_name
             steps[-1]["tool_result"] = tool_result
 
-            # feed result back into history
             history.append({"role": "assistant", "content": plan})
             history.append({"role": "user", "content": f"Tool result: {tool_result}"})
 
         else:
-            # LLM didn't follow the format, nudge it
             history.append({
                 "role": "user",
                 "content": "Please respond with either CALL_TOOL: tool_name : input or DONE: answer"
@@ -136,7 +126,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
     }
 
 
-# Quick test
+# quick test
 
 if __name__ == "__main__":
     result = run_agent("What are the safety procedures for pump maintenance?")
