@@ -58,38 +58,24 @@ def get_relevant_chunks(query: str, max_distance: float = 1.15) -> list[dict]:
     ]
 
 def build_rag_prompt(question: str, chunks: list[dict]) -> tuple[str, str]:
-    """
-    Build a system prompt + user prompt from retrieved context.
-    Returns (system_prompt, user_prompt) — pass system_prompt via
-    llm_client's `system` param rather than concatenating it into one string.
-    """
     system_prompt = (
         "You are an assistant answering questions using the organization's "
         "Standard Operating Procedures (SOPs).\n\n"
-
         "Use ONLY the information provided in the retrieved context.\n"
-
         "Do NOT add safety practices, industry standards, or prior knowledge "
         "that are not explicitly written in the context.\n"
-
         "If something is not mentioned, clearly state that it is not available "
         "in the SOPs.\n"
-
         "When answering, stay as close as possible to the wording of the SOPs "
         "instead of paraphrasing with new concepts.\n"
-
         "Always end with the source file names."
     )
 
     if not chunks:
         user_prompt = (
-            f"Context:\n{context}\n\n"
             f"Question: {question}\n\n"
-            "Answer using ONLY the information provided in the context above. "
-            "Do not add any external knowledge or assumptions. "
-            "If the context does not contain the answer, reply exactly: "
-            "'I don't have this information in the provided SOP documents.'\n\n"
-            f"End your answer with:\nSource(s): {', '.join(sources_seen)}"
+            "No relevant context was found in the SOP documents. "
+            "Reply exactly: 'I don't have this information in the provided SOP documents.'"
         )
         return system_prompt, user_prompt
 
@@ -158,7 +144,7 @@ def answer_rag_query(question: str) -> dict:
 
 # Test
 if __name__ == "__main__":
-    query = "What are the safety procedures?"
+    query = "What are the safety procedures"
 
     response = answer_rag_query(query)
 

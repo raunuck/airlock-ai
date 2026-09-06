@@ -26,6 +26,15 @@ def init_db():
             timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rag_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prompt TEXT,
+            sources TEXT,
+            answer TEXT,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -55,4 +64,13 @@ def seed_registry():
             [("qwen2.5:7b", "document"), ("qwen2.5-coder:7b", "code")],
         )
         conn.commit()
+    conn.close()
+
+def log_rag_query(prompt: str, sources: list[str], answer: str):
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO rag_logs (prompt, sources, answer) VALUES (?, ?, ?)",
+        (prompt, ", ".join(sources), answer),
+    )
+    conn.commit()
     conn.close()
