@@ -1,7 +1,8 @@
 from backend.rag.retrieval import answer_rag_query
-from backend.llm_client import prompt as llm_prompt
+from backend.llm_client import chat as llm_chat
 from backend.app.tools.docgen import write_approval_note
 from backend.app.tools.sandbox import run_code_sandboxed
+from backend.app.tools.ocr import extract_text
 
 
 # tools
@@ -28,6 +29,7 @@ TOOLS = {
     "search_docs": search_docs,
     "write_docx": write_docx,
     "run_code": run_code,
+    "extract_text": extract_text,
 }
 
 
@@ -37,6 +39,7 @@ SYSTEM_PROMPT = """You are an agent helping with industrial tasks at an oil refi
 You have access to the following tools:
 
 - search_docs: searches the local SOP knowledge base and returns relevant content with citations
+- extract_text: extracts text from an image using OCR (input: image file path)
 - write_docx: takes a findings summary and creates an approval note as a .docx file
 - run_code: runs a python code snippet and returns the output
 
@@ -54,6 +57,12 @@ Assistant: CALL_TOOL: search_docs : valve inspection safety procedures
 
 User: Tool result: [some content]
 Assistant: DONE: Based on the SOPs, the safety procedures are...
+
+User: Summarize the scanned report report.png
+Assistant: CALL_TOOL: extract_text : report.png
+
+User: Tool result: [extracted report text]
+Assistant: DONE: Here is a summary of the report...
 """
 
 
@@ -66,8 +75,8 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
 
     for step_num in range(1, max_steps + 1):
 
-        response = llm_prompt(
-            text=history[-1]["content"] if step_num == 1 else "Continue.",
+        response = llm_chat(
+            messages=history,
             system=SYSTEM_PROMPT,
             model_key="general",
         )

@@ -108,7 +108,7 @@ def answer_rag_query(question: str) -> dict:
         }
     """
     chunks = get_relevant_chunks(question)
-    system_prompt, user_prompt = build_rag_prompt(question, chunks)
+    
 
     if not chunks:
         return {
@@ -117,6 +117,8 @@ def answer_rag_query(question: str) -> dict:
             "model_used": None,
             "context_found": False,
         }
+        
+    system_prompt, user_prompt = build_rag_prompt(question, chunks)    
 
     try:
         response = llm_prompt(
