@@ -1,8 +1,9 @@
-from backend.rag.retrieval import answer_rag_query
-from backend.llm_client import chat as llm_chat
-from backend.app.tools.docgen import write_approval_note
-from backend.app.tools.sandbox import run_code_sandboxed
-from backend.app.tools.ocr import extract_text
+from rag.retrieval import answer_rag_query
+from llm_client import prompt as llm_prompt
+from app.tools.docgen import write_approval_note
+from app.tools.sandbox import run_code_sandboxed
+import uuid
+from app.db import log_agent_step
 
 
 # tools
@@ -67,6 +68,7 @@ Assistant: DONE: Here is a summary of the report...
 
 
 def run_agent(user_goal: str, max_steps: int = 5) -> dict:
+    run_id = str(uuid.uuid4())
     history = [
         {"role": "user", "content": user_goal}
     ]
@@ -97,6 +99,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
                 "answer": final_answer,
                 "steps": steps,
                 "completed": True,
+                "run_id":run_id
             }
 
         if plan.startswith("CALL_TOOL:"):
@@ -105,6 +108,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
                 tool_name = tool_name.strip()
                 tool_input = tool_input.strip()
             except ValueError:
+                log_agent_step(run_id, step_num, plan, None, "malformed tool call", is_final=False)
                 history.append({
                     "role": "user",
                     "content": "Tool call format was wrong. Use: CALL_TOOL: tool_name : input"
@@ -118,6 +122,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
 
             steps[-1]["tool_called"] = tool_name
             steps[-1]["tool_result"] = tool_result
+            log_agent_step(run_id, step_num, plan, tool_name, str(tool_result), is_final=False)
 
             history.append({"role": "assistant", "content": plan})
             history.append({"role": "user", "content": f"Tool result: {tool_result}"})
@@ -132,6 +137,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
         "answer": "Could not complete the task within the step limit.",
         "steps": steps,
         "completed": False,
+        "run_id" : run_id,
     }
 
 
