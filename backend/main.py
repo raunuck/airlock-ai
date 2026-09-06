@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db, seed_registry
 from app.routers.tasks import router as tasks_router
-from app.routers.rag import router as rag_router
+
 
 app = FastAPI(title="Sovereign Workbench API")
 
@@ -18,7 +18,7 @@ init_db()       # creates the tables if they don't exist yet
 seed_registry()
 
 app.include_router(tasks_router)
-app.include_router(rag_router)
+
 
 
 @app.get("/health")

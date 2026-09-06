@@ -64,6 +64,7 @@ def chat(
 
     except Exception as e:
         err_str = str(e).lower()
+        print(f"DEBUG - actual error was: {err_str}")
         
         # Check if the error is related to insufficient system memory / RAM
         if ("memory" in err_str or "system memory" in err_str or "oom" in err_str) and model_name in FALLBACK_MODELS:

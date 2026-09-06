@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas import TaskRequest, TaskResponse
-from app.db import log_task
+from app.db import log_task,log_rag_query
 from app.classifier import classify_task
 from rag.retrieval import answer_rag_query
 from llm_client import prompt as llm_prompt
@@ -29,6 +29,7 @@ def handle_task(req: TaskRequest):
         response_text = rag_result["answer"]
         model_used = rag_result.get("model_used") or "rag-pipeline"   # fixed key
         sources = rag_result.get("sources") or []                    # no longer dropped
+        log_rag_query(req.prompt, sources, response_text)
     else:
         model_key = TASK_TO_MODEL_KEY.get(task_type, "general")
         try:
@@ -39,8 +40,7 @@ def handle_task(req: TaskRequest):
         response_text = result["content"]
         model_used = result["model"]
         sources = None
-
-    log_task(task_type, model_used, req.prompt, response_text)
+        log_task(task_type, model_used, req.prompt, response_text)
 
     return TaskResponse(
         model_used=model_used,
