@@ -1,9 +1,10 @@
 from rag.retrieval import answer_rag_query
-from llm_client import prompt as llm_prompt
+from llm_client import chat as llm_chat
 from app.tools.docgen import write_approval_note
 from app.tools.sandbox import run_code_sandboxed
 import uuid
 from app.db import log_agent_step
+from app.tools.ocr import extract_text
 
 
 # tools
