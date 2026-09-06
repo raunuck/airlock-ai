@@ -35,6 +35,29 @@ def init_db():
             timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT,
+            step_num INTEGER,
+            llm_output TEXT,
+            tool_called TEXT,
+            tool_result TEXT,
+            is_final INTEGER,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def log_agent_step(run_id: str, step_num: int, llm_output: str,
+                    tool_called: str | None, tool_result: str | None, is_final: bool):
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO agent_logs (run_id, step_num, llm_output, tool_called, tool_result, is_final) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (run_id, step_num, llm_output, tool_called, tool_result, int(is_final)),
+    )
     conn.commit()
     conn.close()
 
