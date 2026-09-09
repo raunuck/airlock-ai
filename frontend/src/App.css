@@ -34,9 +34,9 @@
 .glow-wash {
   position: absolute;
   inset: -20%;
-  background: radial-gradient(circle at 20% 15%, rgba(56, 189, 248, 0.34), transparent 46%),
-    radial-gradient(circle at 82% 12%, rgba(99, 102, 241, 0.32), transparent 46%),
-    radial-gradient(circle at 55% 88%, rgba(167, 139, 250, 0.22), transparent 48%);
+  background: radial-gradient(circle at 20% 15%, rgba(93, 246, 121, 0.34), transparent 46%),
+    radial-gradient(circle at 82% 12%, rgba(99, 241, 116, 0.32), transparent 46%),
+    radial-gradient(circle at 55% 88%, rgba(146, 250, 139, 0.22), transparent 48%);
   background-size: 150% 150%;
   animation: wash-drift 22s ease-in-out infinite;
   will-change: background-position, transform;

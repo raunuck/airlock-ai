@@ -1,46 +1,57 @@
 @import "tailwindcss";
 
-/*
-  Design tokens for Airlock AI.
-  No external font imports on purpose: this is an air-gapped product,
-  so the UI only ever uses fonts already on the operator's machine.
-*/
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas,
     "Liberation Mono", monospace;
+}
 
-  /* Rich navy base with a visibly lighter panel step above it. */
-  --color-base: #0c1225;
-  --color-base-2: #161d3a;
-  --color-panel: #171f3c;
-  --color-panel-raised: #1e2749;
-  --color-border: #2b3660;
-  --color-border-strong: #3e4c86;
+:root {
+  --color-base: #f6f5f1;
+  --color-sidebar: #f6f5f1;
+  --color-panel: #ffffff;
+  --color-panel-raised: #fbfaf7;
+  --color-border: #e7e5df;
+  --color-border-strong: #d7d4cb;
 
-  /* Bright, comfortable white-blue text with a clearly readable secondary tone. */
-  --color-ink: #f1f4fe;
-  --color-ink-muted: #becdf0;
-  --color-ink-faint: #8b96c2;
+  --color-ink: #17181a;
+  --color-ink-muted: #6b6f76;
+  --color-ink-faint: #9a9da3;
 
-  --color-accent: #38bdf8;
-  --color-accent-strong: #0ea5e9;
-  --color-accent-ink: #041826;
-  --color-indigo: #6366f1;
-  --color-violet: #a78bfa;
+  --color-accent: #8bc53f;
+  --color-accent-strong: #74ab2c;
+  --color-accent-ink: #16210a;
+  --color-accent-soft: rgba(139, 197, 63, 0.14);
 
   --color-ok: #34d399;
-  --color-error: #fb7185;
+  --color-error: #e0455a;
+
+  --shadow-card: 0 1px 2px rgba(20, 20, 15, 0.04), 0 10px 24px -14px rgba(20, 20, 15, 0.12);
+}
+
+[data-theme="dark"] {
+  --color-base: #101214;
+  --color-sidebar: #0d0f11;
+  --color-panel: #17191c;
+  --color-panel-raised: #1d2023;
+  --color-border: #2a2d31;
+  --color-border-strong: #3a3e43;
+
+  --color-ink: #f2f2f0;
+  --color-ink-muted: #a2a6ab;
+  --color-ink-faint: #6f7378;
+
+  --color-accent: #8bc53f;
+  --color-accent-strong: #a3d95f;
+  --color-accent-ink: #101c05;
+  --color-accent-soft: rgba(139, 197, 63, 0.16);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 24px -14px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
-  html,
-  body,
-  #root {
-    height: 100%;
-  }
-
+  html, body, #root { height: 100%; }
   body {
     background-color: var(--color-base);
     color: var(--color-ink);
@@ -48,29 +59,21 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow: hidden;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
+}
 
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-strong) transparent;
-  }
+/* Forces the background to cover the entire right panel edge-to-edge */
+.hero-photo-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center right; /* Keeps the desk/window on the right side */
+  background-repeat: no-repeat;
+}
 
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background-color: var(--color-border-strong);
-    border-radius: 999px;
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-  }
-
-  textarea {
-    font-family: inherit;
-  }
+[data-theme="dark"] .hero-photo-scene {
+  filter: brightness(0.85) contrast(1.05);
 }

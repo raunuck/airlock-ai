@@ -1,15 +1,74 @@
 import { useState, useRef, useEffect } from "react";
 import "./App.css";
 import airlockLogo from "./assets/airlock-logo.png";
+import workbenchLight from "./assets/workbench-light.jpeg";
+import workbenchDark from "./assets/workbench-dark.jpeg";
 
 const PROCESSING_MESSAGES = ["Processing locally…", "Routing to the appropriate model…"];
 const COMPOSER_MAX_HEIGHT = 168;
 
-function App() {
+const EXAMPLES = [
+  { icon: "doc", title: "Summarize a document", subtitle: "Analyze reports, PDFs, logs…" },
+  { icon: "code", title: "Explain this code", subtitle: "Get clear, local explanations" },
+  { icon: "image", title: "Analyze an image", subtitle: "Understand diagrams, charts…" },
+];
+
+const NAV_ITEMS = [
+  { icon: "home", label: "Workbench" },
+  { icon: "cube", label: "Model Hub" },
+  { icon: "gear", label: "Settings" },
+  { icon: "monitor", label: "System" },
+  { icon: "file", label: "Docs" },
+];
+
+function Icon({ name, className = "h-5 w-5" }) {
+  const common = { className, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  switch (name) {
+    case "home":
+      return <svg {...common}><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9" /></svg>;
+    case "cube":
+      return <svg {...common}><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" /><path d="M4 7l8 4 8-4M12 11v10" /></svg>;
+    case "gear":
+      return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.4-2-3.4-2.2.8a7.7 7.7 0 0 0-2.6-1.5L14 2h-4l-.5 2.5a7.7 7.7 0 0 0-2.6 1.5l-2.2-.8-2 3.4L4.6 10a7.6 7.6 0 0 0 0 3l-1.9 1.4 2 3.4 2.2-.8c.76.66 1.65 1.18 2.6 1.5L10 22h4l.5-2.5a7.7 7.7 0 0 0 2.6-1.5l2.2.8 2-3.4-1.9-1.5Z" /></svg>;
+    case "monitor":
+      return <svg {...common}><rect x="3" y="4" width="18" height="13" rx="1.5" /><path d="M8 21h8M12 17v4" /></svg>;
+    case "file":
+      return <svg {...common}><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v5h5M9 12h6M9 16h6" /></svg>;
+    case "lock":
+      return <svg {...common}><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>;
+    case "bolt":
+      return <svg {...common}><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></svg>;
+    case "box":
+      return <svg {...common}><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v9l9 5 9-5V8M12 13v9" /></svg>;
+    case "moon":
+      return <svg {...common}><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" /></svg>;
+    case "sun":
+      return <svg {...common}><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>;
+    case "plus":
+      return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>;
+    case "chevron":
+      return <svg {...common} className={className}><path d="M6 9l6 6 6-6" /></svg>;
+    case "sliders":
+      return <svg {...common}><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h13M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>;
+    case "info":
+      return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.01" /></svg>;
+    case "doc":
+      return <svg {...common}><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M9 13h6M9 17h6" /></svg>;
+    case "code":
+      return <svg {...common}><path d="m9 8-4 4 4 4M15 8l4 4-4 4" /></svg>;
+    case "image":
+      return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="1.5" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L15 16l1.5-1.5a2 2 0 0 1 2.8 0L21 16" /></svg>;
+    default:
+      return null;
+  }
+}
+
+export default function App() {
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
+  const [theme, setTheme] = useState("light");
 
   const nextIdRef = useRef(0);
   const bottomRef = useRef(null);
@@ -20,8 +79,10 @@ function App() {
     return nextIdRef.current;
   }
 
-  // Cycle the honest "what's happening" copy while waiting on the backend.
-  // Text only - never implies a step count or a fake progress percentage.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     if (!loading) {
       setMessageIndex(0);
@@ -33,13 +94,10 @@ function App() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  // Keep the newest message in view as the conversation grows.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
-  // Let the composer grow with multi-line input, capped at COMPOSER_MAX_HEIGHT,
-  // then hand off to internal scrolling so the shell stays compact.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -47,12 +105,9 @@ function App() {
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
   }, [prompt]);
 
-  async function submit() {
-    const trimmedPrompt = prompt.trim();
-
-    if (!trimmedPrompt || loading) {
-      return;
-    }
+  async function submit(overridePrompt) {
+    const trimmedPrompt = (overridePrompt ?? prompt).trim();
+    if (!trimmedPrompt || loading) return;
 
     setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmedPrompt }]);
     setPrompt("");
@@ -64,7 +119,6 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: trimmedPrompt }),
       });
-
       const data = await res.json();
 
       if (!res.ok) {
@@ -91,7 +145,6 @@ function App() {
         { id: nextId(), role: "assistant", isError: true, content: "Backend unreachable — is uvicorn running?" },
       ]);
     }
-
     setLoading(false);
   }
 
@@ -100,8 +153,6 @@ function App() {
     setPrompt("");
   }
 
-  // Enter sends, Shift+Enter inserts a new line - the convention this
-  // kind of interface is expected to follow.
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -109,17 +160,12 @@ function App() {
     }
   }
 
-  // Safely format error details whether they are strings, objects, or validation arrays
   const renderError = (detail) => {
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail)) {
       return detail.map((err, idx) => (
         <div key={idx} className="mt-1.5 first:mt-0">
-          {err.loc ? (
-            <span className="mr-1.5 font-mono text-xs text-error/70">
-              {err.loc.join(" → ")}:
-            </span>
-          ) : null}
+          {err.loc ? <span className="mr-1.5 font-mono text-xs opacity-75">{err.loc.join(" → ")}:</span> : null}
           <span>{err.msg}</span>
         </div>
       ));
@@ -130,129 +176,217 @@ function App() {
   const hasStarted = messages.length > 0 || loading;
 
   return (
-    <main className="relative flex h-screen flex-col overflow-hidden font-sans text-ink">
-      {/* ---------- Ambient background ---------- */}
-      <div className="airlock-bg" aria-hidden="true">
-        <div className="glow-wash" />
-        <div className="light-streaks" />
-      </div>
-
-      {/* ---------- Header ---------- */}
-      <header className="nav-enter relative z-10 border-b border-border/70">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="fade-in-up flex items-center gap-2.5">
-            <div className="logo-mark relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl">
-              <span className="absolute inset-0 rounded-xl bg-accent/20 blur-md" aria-hidden="true" />
-              <img
-                src={airlockLogo}
-                alt="Airlock AI logo"
-                className="relative h-full w-full object-contain"
-                draggable="false"
-              />
-            </div>
-            <span className="text-sm font-semibold tracking-tight text-ink sm:text-[15px]">Airlock AI</span>
+    <main className="flex h-screen w-full font-sans text-ink overflow-hidden" style={{ backgroundColor: "var(--color-base)" }}>
+      {/* Sidebar */}
+      <aside className="nav-enter flex w-64 shrink-0 flex-col border-r px-4 py-5 z-20" style={{ backgroundColor: "var(--color-sidebar)", borderColor: "var(--color-border)" }}>
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="logo-mark relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl">
+            <img src={airlockLogo} alt="Airlock AI logo" className="relative h-full w-full object-contain" draggable="false" />
           </div>
-
-          <div className="flex items-center gap-3">
-            {hasStarted && (
-              <button
-                type="button"
-                onClick={clearWorkspace}
-                className="rounded-full border border-border-strong px-3 py-1.5 text-xs font-medium text-ink-muted transition hover:border-ink-faint hover:text-ink"
-              >
-                Clear
-              </button>
-            )}
-
-            <div className="status-badge fade-in-up delay-1 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-ok">
-              <span className="status-dot-ring">
-                <span className="status-pulse h-1.5 w-1.5 rounded-full bg-ok" />
-              </span>
-              <span className="hidden font-mono tracking-wide sm:inline">AIR-GAPPED · LOCAL ONLY</span>
-              <span className="font-mono tracking-wide sm:hidden">LOCAL</span>
+          <div className="leading-tight">
+            <div className="text-[15px] font-semibold tracking-tight text-ink">Airlock</div>
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
+              Local AI
             </div>
           </div>
         </div>
-        <div className="scan-seam" aria-hidden="true" />
-      </header>
 
-      {/* ---------- Conversation area ---------- */}
-      <div className="relative z-10 flex-1 overflow-y-auto">
-        <div className="mx-auto flex min-h-full max-w-3xl flex-col px-4 sm:px-6">
+        <nav className="mt-8 flex flex-col gap-1">
+          {NAV_ITEMS.map((item, idx) => (
+            <button
+              key={item.label}
+              type="button"
+              className="nav-item flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+              style={
+                idx === 0
+                  ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
+                  : { color: "var(--color-ink-muted)" }
+              }
+            >
+              <Icon name={item.icon} className="h-[18px] w-[18px]" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-auto">
+          <div className="rounded-2xl border p-3.5" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-panel)", boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center gap-2 text-sm font-medium text-ink">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
+              Local Mode
+            </div>
+            <div className="mt-0.5 text-xs text-ink-faint">No external calls</div>
+            <div className="mt-3 flex flex-col gap-2 text-xs">
+              <StatRow icon="cpu" label="CPU" value="12%" />
+              <StatRow icon="ram" label="RAM" value="3.4 / 16 GB" />
+              <StatRow icon="gpu" label="GPU" value="0%" />
+            </div>
+          </div>
+          <div className="mt-3 px-1 text-xs text-ink-faint">Airlock AI v0.1.0</div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="relative flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+        
+        {/* Full-Bleed Background Image */}
+        <div 
+          className="hero-photo-scene" 
+          style={{ backgroundImage: `url(${theme === "dark" ? workbenchDark : workbenchLight})` }}
+        />
+
+        {/* Top Header */}
+        <header className="relative z-10 flex items-center justify-between gap-4 px-8 py-4 shrink-0">
+          <div className="status-badge flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "rgba(139,197,63,0.4)", color: "var(--color-accent-strong)" }}>
+            <Icon name="lock" className="h-3.5 w-3.5" />
+            <span className="font-mono tracking-wide">AIR-GAPPED · LOCAL ONLY</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+              className="flex h-9 w-9 items-center justify-center rounded-full border transition shadow-sm"
+              style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink)" }}
+            >
+              <Icon name={theme === "light" ? "moon" : "sun"} className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="User Profile"
+              className="flex h-9 w-9 items-center justify-center rounded-full border transition shadow-sm font-semibold text-xs"
+              style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink)" }}
+            >
+              U
+            </button>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full shadow-sm"
+              style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+            >
+              <Icon name="gear" className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable Body Area */}
+        <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden w-full">
           {!hasStarted ? (
-            <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-              <p className="fade-in-up delay-1 font-mono text-xs uppercase tracking-widest text-ink-faint">
-                Local inference · zero external calls
-              </p>
-              <h1 className="fade-in-up delay-2 mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
-                A private workbench for confidential industrial work.
-              </h1>
-              <p className="fade-in-up delay-3 mt-3 max-w-md text-base leading-relaxed text-ink-muted">
-                Every prompt is handled entirely on this machine, by locally hosted
-                models. Nothing you submit here ever leaves the network.
-              </p>
+            <div className="flex min-h-full w-full relative pb-12">
+              
+              <div className="flex w-full max-w-[920px] flex-col justify-center px-8 py-6 sm:px-12">
+                <h1 className="fade-in-up text-[48px] font-semibold leading-[1.08] tracking-tight text-ink drop-shadow-md">
+                  Your Ideas.
+                  <br />
+                  <span style={{ color: "var(--color-accent)" }}>Your Machine.</span>
+                </h1>
+                <p className="fade-in-up delay-1 mt-4 max-w-lg text-base leading-relaxed text-ink-muted drop-shadow font-medium">
+                  A private workspace for confidential industrial work.
+                  <br />
+                  Run powerful AI models locally, with complete control.
+                </p>
+
+                <div className="fade-in-up delay-3 composer-enter mt-8">
+                  <div className="composer-card rounded-3xl border p-3.5 shadow-lg" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)"}}>
+                    <textarea
+                      ref={textareaRef}
+                      rows={1}
+                      className="w-full resize-none bg-transparent px-2 py-2 text-base text-ink outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      placeholder="Ask anything…"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                    />
+                    <div className="mt-2 flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <IconPill><Icon name="plus" className="h-4 w-4" /></IconPill>
+                        <TextPill icon="sliders" label="Tools" />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex">
+                          <Icon name="info" className="h-3.5 w-3.5" />
+                          Shift + Enter for a new line
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => submit()}
+                          disabled={!prompt.trim()}
+                          className="send-button flex h-9 w-9 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                          style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+                        >
+                          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="fade-in-up delay-3 mt-6">
+                  <p className="mb-2.5 text-sm font-medium text-ink-muted drop-shadow">Try an example</p>
+                  <div className="flex flex-wrap gap-3">
+                    {EXAMPLES.map((ex) => (
+                      <button
+                        key={ex.title}
+                        type="button"
+                        onClick={() => submit(ex.title)}
+                        className="example-card flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition shadow-sm"
+                        style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full shrink-0" style={{ backgroundColor: "var(--color-panel-raised)", color: "var(--color-ink-muted)" }}>
+                          <Icon name={ex.icon} className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-ink">{ex.title}</span>
+                          <span className="block text-xs text-ink-faint">{ex.subtitle}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side Overlays */}
+              <div className="hidden flex-1 relative lg:block pointer-events-none">
+                <div className="absolute right-10 top-6 font-mono text-xs uppercase tracking-widest text-white/95 drop-shadow-md">
+                  <div>Local</div>
+                  <div>Inference</div>
+                  <div>Real</div>
+                  <div>Impact</div>
+                  <div className="mt-2 h-px w-8 bg-white/80" />
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="flex flex-1 flex-col gap-5 py-6">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5 py-6 px-6">
               {messages.map((message) =>
                 message.role === "user" ? (
                   <div key={message.id} className="msg-user flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-gradient-to-br from-indigo/90 to-accent-strong/80 px-4 py-2.5 text-sm leading-6 text-white shadow-[0_8px_24px_-12px_rgba(56,189,248,0.5)]">
+                    <div className="max-w-[80%] rounded-2xl rounded-tr-md px-4 py-2.5 text-sm leading-6 text-white shadow-sm" style={{ background: `linear-gradient(135deg, var(--color-accent-strong), var(--color-accent))` }}>
                       {message.content}
                     </div>
                   </div>
                 ) : (
                   <div key={message.id} className="msg-assistant flex justify-start">
-                    <div className="max-w-[88%] rounded-2xl rounded-tl-md border border-border bg-panel/80 px-4 py-3.5 sm:max-w-[80%]">
+                    <div className="max-w-[88%] rounded-2xl rounded-tl-md border px-4 py-3.5 sm:max-w-[80%] shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
                       {message.isError ? (
                         <div>
                           <p className="text-sm font-medium text-error">Request failed</p>
-                          <div className="mt-1.5 text-sm leading-6 text-error/90">
-                            {renderError(message.content)}
-                          </div>
+                          <div className="mt-1.5 text-sm leading-6 text-error/90">{renderError(message.content)}</div>
                         </div>
                       ) : (
                         <>
-                          <p className="response-text whitespace-pre-wrap text-[15px] leading-7 text-ink">
-                            {message.content}
-                          </p>
-
+                          <p className="response-text whitespace-pre-wrap text-[15px] leading-7 text-ink">{message.content}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="badge-pop delay-1 rounded-full bg-accent/10 px-2.5 py-1 font-mono text-xs font-medium text-accent">
-                              {message.taskType}
-                            </span>
-                            <span className="badge-pop delay-2 rounded-full bg-panel-raised px-2.5 py-1 font-mono text-xs font-medium text-ink-muted">
-                              {message.modelUsed}
-                            </span>
+                            <span className="rounded-full px-2.5 py-1 font-mono text-xs font-medium" style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }}>{message.taskType}</span>
+                            <span className="rounded-full px-2.5 py-1 font-mono text-xs font-medium" style={{ backgroundColor: "var(--color-panel-raised)", color: "var(--color-ink-muted)" }}>{message.modelUsed}</span>
                           </div>
-
                           {Array.isArray(message.sources) && message.sources.length > 0 && (
-                            <div className="source-expand mt-3 rounded-lg border border-violet/25 bg-violet/[0.08] p-3">
-                              <p className="mb-1.5 font-mono text-xs font-medium text-violet">Sources</p>
+                            <div className="source-expand mt-3 rounded-lg border p-3" style={{ backgroundColor: "var(--color-panel-raised)", borderColor: "var(--color-border)" }}>
+                              <p className="mb-1.5 font-mono text-xs font-medium" style={{ color: "var(--color-accent-strong)" }}>Sources</p>
                               <ul className="flex flex-col gap-1">
                                 {message.sources.map((source, idx) => {
-                                  const label =
-                                    typeof source === "string"
-                                      ? source
-                                      : source.title || source.url || JSON.stringify(source);
-                                  const url = typeof source === "object" ? source.url : null;
-
-                                  return (
-                                    <li key={idx} className="text-sm">
-                                      {url ? (
-                                        <a
-                                          href={url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-violet underline decoration-violet/30 underline-offset-2 transition hover:decoration-violet"
-                                        >
-                                          {label}
-                                        </a>
-                                      ) : (
-                                        <span className="text-ink-muted">{label}</span>
-                                      )}
-                                    </li>
-                                  );
+                                  const label = typeof source === "string" ? source : source.title || source.url || JSON.stringify(source);
+                                  return <li key={idx} className="text-sm text-ink-muted">{label}</li>;
                                 })}
                               </ul>
                             </div>
@@ -266,72 +400,101 @@ function App() {
 
               {loading && (
                 <div className="msg-assistant flex justify-start" aria-live="polite">
-                  <div className="max-w-[80%] rounded-2xl rounded-tl-md border border-border bg-panel/80 px-4 py-3.5">
+                  <div className="max-w-[80%] rounded-2xl rounded-tl-md border px-4 py-3.5 shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
                     <div className="flex items-center gap-3">
                       <span className="processing-ring" aria-hidden="true" />
-                      <span className="processing-dots">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
+                      <span className="processing-dots"><span /><span /><span /></span>
                       <span className="text-sm text-ink-muted">{PROCESSING_MESSAGES[messageIndex]}</span>
                     </div>
-                    <div className="scan-bar mt-2.5" />
                   </div>
                 </div>
               )}
-
               <div ref={bottomRef} />
             </div>
           )}
         </div>
-      </div>
 
-      {/* ---------- Composer ---------- */}
-      <div className="relative z-10 px-4 pb-5 pt-2 sm:px-6 sm:pb-6">
-        <div className="composer-enter mx-auto max-w-3xl">
-          <div className="composer-glow flex items-end gap-2 p-2 sm:p-2.5">
-            <textarea
-              ref={textareaRef}
-              className="composer-input max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base leading-[1.6] text-ink outline-none placeholder:text-ink-faint disabled:opacity-60 sm:text-lg"
-              style={{ caretColor: "var(--color-accent)" }}
-              rows={1}
-              placeholder="Ask Airlock AI anything — it stays on this machine."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={loading}
-            />
-
-            <button
-              type="button"
-              onClick={submit}
-              disabled={loading || !prompt.trim()}
-              aria-label="Run task"
-              className="send-button group flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo to-accent text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
-            >
-              {loading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />
-              ) : (
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  className="send-icon h-4.5 w-4.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5"
-                  aria-hidden="true"
+        {/* Floating Composer */}
+        {hasStarted && (
+          <div className="relative z-10 px-6 pb-5 pt-2">
+            <div className="composer-enter mx-auto max-w-3xl">
+              <div className="flex items-end gap-2 rounded-3xl border p-2 shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
+                <textarea
+                  ref={textareaRef}
+                  className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base leading-[1.6] text-ink outline-none placeholder:text-ink-faint disabled:opacity-60"
+                  rows={1}
+                  placeholder="Ask Airlock AI anything — it stays on this machine."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => submit()}
+                  disabled={loading || !prompt.trim()}
+                  className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                  style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
                 >
-                  <path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
+                  {loading ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  ) : (
+                    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  )}
+                </button>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="font-mono text-[11px] text-ink-faint">Enter to send · Shift+Enter for a new line</p>
+                <button type="button" onClick={clearWorkspace} className="text-xs font-medium text-ink-muted hover:text-ink">Clear</button>
+              </div>
+            </div>
           </div>
-
-          <p className="mt-2 text-center font-mono text-[11px] text-ink-faint">
-            Enter to send · Shift+Enter for a new line · POST /task
-          </p>
-        </div>
+        )}
       </div>
     </main>
   );
 }
 
-export default App;
+function Feature({ icon, title, subtitle }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full shrink-0 shadow-sm" style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}>
+        <Icon name={icon} className="h-4 w-4" />
+      </span>
+      <span>
+        <span className="block text-sm font-semibold text-ink drop-shadow">{title}</span>
+        <span className="block text-xs text-ink-faint drop-shadow">{subtitle}</span>
+      </span>
+    </div>
+  );
+}
+
+function IconPill({ children }) {
+  return (
+    <button type="button" className="flex h-8 w-8 items-center justify-center rounded-xl border transition hover:border-slate-400" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}>
+      {children}
+    </button>
+  );
+}
+
+function TextPill({ icon, label }) {
+  return (
+    <button type="button" className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition hover:border-slate-400" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}>
+      <Icon name={icon} className="h-3.5 w-3.5" />
+      {label}
+      <Icon name="chevron" className="h-3 w-3" />
+    </button>
+  );
+}
+
+function StatRow({ icon, label, value }) {
+  return (
+    <div className="flex items-center justify-between text-ink-muted text-xs">
+      <span className="flex items-center gap-1.5">
+        <Icon name={icon === "cpu" ? "monitor" : icon === "ram" ? "box" : "cube"} className="h-3.5 w-3.5" />
+        {label}
+      </span>
+      <span className="font-medium text-ink">{value}</span>
+    </div>
+  );
+}
