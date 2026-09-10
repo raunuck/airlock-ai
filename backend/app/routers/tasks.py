@@ -16,7 +16,7 @@ def handle_task(req: TaskRequest):
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
 
-    task_type = classify_task(req.prompt)
+    task_type = classify_task(req.prompt, req.previous_task_type)
 
     if task_type == "rag_query":
         try:

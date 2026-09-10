@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class TaskRequest(BaseModel):
     prompt: str
+    previous_task_type: Optional[str] = None
 
 class TaskResponse(BaseModel):
     model_used: str
