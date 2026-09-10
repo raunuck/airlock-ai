@@ -5,7 +5,14 @@ Run:
     python test_llm_client.py
 """
 
-from backend.llm_client import prompt
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+from llm_client import prompt
 
 print("=" * 50)
 print("Testing General Model")
