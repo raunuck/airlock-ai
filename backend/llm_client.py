@@ -33,12 +33,14 @@ def chat(
     """
 
     model_name = MODELS.get(model_key)
-
     if model_name is None:
-        raise ValueError(
-            f"Invalid model_key: {model_key}."
-            f" Expected one of: {list(MODELS.keys())}"
-        )
+        if model_key in MODELS.values() or model_key in FALLBACK_MODELS.values() or model_key in FALLBACK_MODELS:
+            model_name = model_key
+        else:
+            raise ValueError(
+                f"Invalid model_key: {model_key}."
+                f" Expected one of: {list(MODELS.keys())} or {list(MODELS.values())}"
+            )
 
     final_messages = list(messages)  # Make a copy to avoid modifying the original list
 
@@ -66,8 +68,8 @@ def chat(
         err_str = str(e).lower()
         print(f"DEBUG - actual error was: {err_str}")
         
-        # Check if the error is related to insufficient system memory / RAM
-        if ("memory" in err_str or "system memory" in err_str or "oom" in err_str) and model_name in FALLBACK_MODELS:
+        # Check if the error is related to insufficient system memory / RAM / VRAM allocation
+        if any(k in err_str for k in ["memory", "system memory", "oom", "cudamalloc", "allocate", "allocation"]) and model_name in FALLBACK_MODELS:
             fallback_model = FALLBACK_MODELS[model_name]
             print(f"⚠️ Memory limitation hit for {model_name}. Automatically falling back to {fallback_model}...")
             

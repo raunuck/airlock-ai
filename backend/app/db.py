@@ -1,9 +1,18 @@
 import sqlite3
+from pathlib import Path
 
-DB_PATH = "workbench.db"
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = BASE_DIR / "workbench.db"
+
+DEFAULT_TASK_MODELS = [
+    ("document", "qwen2.5:7b"),
+    ("code", "qwen2.5-coder:7b"),
+    ("rag_query", "qwen2.5:7b"),
+    ("general", "qwen2.5:7b"),
+]
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row  # lets you access columns by name
     return conn
 
@@ -13,7 +22,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS model_registry (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             model_name TEXT NOT NULL,
-            task_type TEXT NOT NULL   -- e.g. 'code', 'document', 'rag_query'
+            task_type TEXT NOT NULL   -- e.g. 'code', 'document', 'rag_query', 'general'
         )
     """)
     conn.execute("""
@@ -76,17 +85,29 @@ def get_model_for_task(task_type: str) -> str:
         "SELECT model_name FROM model_registry WHERE task_type = ? LIMIT 1", (task_type,)
     ).fetchone()
     conn.close()
-    return row["model_name"] if row else "qwen2.5:7b"  # fallback if nothing registered
+    if row:
+        return row["model_name"]
+
+    fallbacks = {
+        "code": "qwen2.5-coder:7b",
+        "document": "qwen2.5:7b",
+        "rag_query": "qwen2.5:7b",
+        "general": "qwen2.5:7b",
+    }
+    return fallbacks.get(task_type, "qwen2.5:7b")
 
 def seed_registry():
     conn = get_connection()
-    existing = conn.execute("SELECT COUNT(*) FROM model_registry").fetchone()[0]
-    if existing == 0:
-        conn.executemany(
-            "INSERT INTO model_registry (model_name, task_type) VALUES (?, ?)",
-            [("qwen2.5:7b", "document"), ("qwen2.5-coder:7b", "code")],
-        )
-        conn.commit()
+    for task_type, model_name in DEFAULT_TASK_MODELS:
+        existing = conn.execute(
+            "SELECT COUNT(*) FROM model_registry WHERE task_type = ?", (task_type,)
+        ).fetchone()[0]
+        if existing == 0:
+            conn.execute(
+                "INSERT INTO model_registry (model_name, task_type) VALUES (?, ?)",
+                (model_name, task_type),
+            )
+    conn.commit()
     conn.close()
 
 def log_rag_query(prompt: str, sources: list[str], answer: str):
