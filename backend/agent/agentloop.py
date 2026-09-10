@@ -1,8 +1,16 @@
+import sys
+from pathlib import Path
+
+# Add backend directory to sys.path so the module can run standalone
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+import uuid
 from rag.retrieval import answer_rag_query
 from llm_client import chat as llm_chat
 from app.tools.docgen import write_approval_note
 from app.tools.sandbox import run_code_sandboxed
-import uuid
 from app.db import log_agent_step
 from app.tools.ocr import extract_text
 
@@ -13,6 +21,9 @@ def search_docs(query: str) -> str:
     result = answer_rag_query(query)
     if not result["context_found"]:
         return "No relevant SOP content found for this query."
+    # If the retrieved answer already includes citations, don't duplicate them
+    if "Source(s):" in result["answer"]:
+        return result["answer"]
     sources = ", ".join(result["sources"])
     return f"{result['answer']}\n\nSource(s): {sources}"
 

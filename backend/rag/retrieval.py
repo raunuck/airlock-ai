@@ -1,10 +1,16 @@
+import sys
 from pathlib import Path
+
+# Add backend directory to sys.path so the module can run standalone
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 import chromadb
 from llm_client import prompt as llm_prompt
 
 # Connect to ChromaDB
 # Resolve the database path relative to the backend directory
-BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_DIR = BASE_DIR / "chroma_db"
 
 client = chromadb.PersistentClient(path=str(CHROMA_DIR))

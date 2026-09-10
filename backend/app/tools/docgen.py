@@ -1,7 +1,14 @@
-from docx import Document
+from pathlib import Path
 from datetime import datetime
+from docx import Document
 
-def write_approval_note(findings: str, output_dir: str = "outputs") -> str:
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DEFAULT_OUTPUT_DIR = BASE_DIR / "outputs"
+
+def write_approval_note(findings: str, output_dir: Path | str | None = None) -> str:
+    target_dir = Path(output_dir) if output_dir else DEFAULT_OUTPUT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
     doc = Document()
     doc.add_heading("Approval Note", level=1)
     doc.add_paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -9,8 +16,7 @@ def write_approval_note(findings: str, output_dir: str = "outputs") -> str:
     doc.add_paragraph(findings)
     doc.add_paragraph("Recommended action: ___________")
 
-    import os
-    os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, f"approval_note_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx")
-    doc.save(path)
-    return path
+    filename = f"approval_note_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    file_path = target_dir / filename
+    doc.save(str(file_path))
+    return f"outputs/{filename}"
