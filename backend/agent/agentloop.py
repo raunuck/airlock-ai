@@ -38,6 +38,8 @@ TOOLS = {
 # agent loop
 
 SYSTEM_PROMPT = """You are an agent helping with industrial tasks at an oil refinery.
+Always respond in English unless the user explicitly requests another language.
+
 You have access to the following tools:
 
 - search_docs: searches the local SOP knowledge base and returns relevant content with citations
@@ -51,7 +53,9 @@ CALL_TOOL: tool_name : input here
 When you have enough information to answer, respond EXACTLY like this:
 DONE: your final answer here
 
-Always try search_docs first before saying you don't know something.
+IMPORTANT:
+- When writing, debugging, or fixing code, you can use run_code to test it. Your final DONE: answer MUST include the complete fixed/written code formatted in markdown code blocks (```python ... ```), along with a clear explanation of what was fixed or implemented.
+- Always try search_docs first before saying you don't know something.
 
 Examples:
 User: What are the safety procedures for valve inspection?
@@ -60,15 +64,21 @@ Assistant: CALL_TOOL: search_docs : valve inspection safety procedures
 User: Tool result: [some content]
 Assistant: DONE: Based on the SOPs, the safety procedures are...
 
-User: Summarize the scanned report report.png
-Assistant: CALL_TOOL: extract_text : report.png
+User: fix this code print(helloworld)
+Assistant: CALL_TOOL: run_code : print("helloworld")
 
-User: Tool result: [extracted report text]
-Assistant: DONE: Here is a summary of the report...
+User: Tool result: Code ran successfully.\nOutput: helloworld
+Assistant: DONE: Here is the corrected code:
+
+```python
+print("helloworld")
+```
+
+**Explanation:** The string literal `helloworld` was missing quotation marks. Adding quotes fixes the syntax error.
 """
 
 
-def run_agent(user_goal: str, max_steps: int = 5) -> dict:
+def run_agent(user_goal: str, max_steps: int = 5, model_key: str = "general") -> dict:
     run_id = str(uuid.uuid4())
     history = [
         {"role": "user", "content": user_goal}
@@ -81,7 +91,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
         response = llm_chat(
             messages=history,
             system=SYSTEM_PROMPT,
-            model_key="general",
+            model_key=model_key,
         )
 
         plan = response["content"].strip()
@@ -94,13 +104,14 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
         })
 
         if plan.startswith("DONE:"):
-            final_answer = plan.replace("DONE:", "").strip()
+            final_answer = plan[len("DONE:"):].strip()
             steps[-1]["final"] = True
+            log_agent_step(run_id, step_num, plan, None, None, is_final=True)
             return {
                 "answer": final_answer,
                 "steps": steps,
                 "completed": True,
-                "run_id":run_id
+                "run_id": run_id,
             }
 
         if plan.startswith("CALL_TOOL:"):
@@ -119,7 +130,10 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
             if tool_name not in TOOLS:
                 tool_result = f"Tool '{tool_name}' not found. Available: {list(TOOLS.keys())}"
             else:
-                tool_result = TOOLS[tool_name](tool_input)
+                try:
+                    tool_result = TOOLS[tool_name](tool_input)
+                except Exception as e:
+                    tool_result = f"Error running tool '{tool_name}': {e}"
 
             steps[-1]["tool_called"] = tool_name
             steps[-1]["tool_result"] = tool_result
@@ -138,7 +152,7 @@ def run_agent(user_goal: str, max_steps: int = 5) -> dict:
         "answer": "Could not complete the task within the step limit.",
         "steps": steps,
         "completed": False,
-        "run_id" : run_id,
+        "run_id": run_id,
     }
 
 
