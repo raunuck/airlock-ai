@@ -17,6 +17,14 @@ const NAV_ITEMS = [
   { icon: "home", label: "Workbench" },
   { icon: "cube", label: "Model Hub" },
   { icon: "file", label: "Docs" },
+  
+];
+const MODELS = [
+  "qwen2.5:7b",
+  "qwen2.5-coder:7b",
+  "llava:7b",
+  "qwen2.5:3b",
+  "qwen2.5-coder:3b",
 ];
 
 function Icon({ name, className = "h-5 w-5" }) {
@@ -68,6 +76,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const [theme, setTheme] = useState("light");
+  const [showModels, setShowModels] = useState(false);
 
   const nextIdRef = useRef(0);
   const bottomRef = useRef(null);
@@ -261,22 +270,65 @@ export default function App() {
         </div>
 
         <nav className="mt-8 flex flex-col gap-1">
-          {NAV_ITEMS.map((item, idx) => (
-            <button
-              key={item.label}
-              type="button"
-              className="nav-item flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
-              style={
-                idx === 0
-                  ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
-                  : { color: "var(--color-ink-muted)" }
+  {NAV_ITEMS.map((item, idx) => (
+    <div key={item.label} className="w-full">
+      <button
+        type="button"
+        onClick={() => {
+          if (item.label === "Model Hub") {
+            setShowModels((prev) => !prev);
+          }
+        }}
+        className="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+        style={
+          idx === 0
+            ? {
+                backgroundColor: "var(--color-accent-soft)",
+                color: "var(--color-accent-strong)",
               }
-            >
-              <Icon name={item.icon} className="h-[18px] w-[18px]" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
+            : {
+                color: "var(--color-ink-muted)",
+              }
+        }
+      >
+       <div className="flex items-center gap-3">
+  <Icon name={item.icon} className="h-[18px] w-[18px]" />
+  {item.label}
+</div>
+
+{item.label === "Model Hub" && (
+  <Icon
+    name="chevron"
+    className={`ml-auto h-3.5 w-3.5 transition-transform ${
+      showModels ? "rotate-180" : ""
+    }`}
+  />
+)}
+      </button>
+
+      {item.label === "Model Hub" && (
+  <div
+    className={`ml-9 grid overflow-hidden transition-all duration-300 ease-in-out ${
+      showModels ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+    }`}
+  >
+    <div className="min-h-0 flex flex-col gap-1">
+      {MODELS.map((model) => (
+        <div
+          key={model}
+          className="px-2 py-1.5 font-mono text-xs"
+          style={{ color: "var(--color-ink-muted)" }}
+        >
+          {model}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+    </div>
+  ))}
+</nav>
+      
         <div className="mt-6 flex items-center justify-between px-1">
           <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">History</span>
           <button
@@ -377,52 +429,84 @@ export default function App() {
                   Run powerful AI models locally, with complete control.
                 </p>
 
-                <div className="fade-in-up delay-3 composer-enter mt-8">
-                  <div className="composer-card rounded-3xl border p-3.5 shadow-lg" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)"}}>
-                    <textarea
-                      ref={textareaRef}
-                      rows={1}
-                      className="w-full resize-none bg-transparent px-2 py-2 text-base text-ink outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                      placeholder="Ask anything…"
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                    />
-                    <div className="mt-2 flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="send-button flex h-9 w-9 items-center justify-center rounded-xl border disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
-                          style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
-                          aria-label="Attach file"
-                        >
-                          <Icon name="plus" className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex">
-                          <Icon name="info" className="h-3.5 w-3.5" />
-                          Shift + Enter for a new line
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => submit()}
-                          disabled={!prompt.trim()}
-                          className="send-button flex h-9 w-9 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
-                          style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
-                        >
-                          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+               <div className="fade-in-up delay-3 composer-enter mt-8">
+  <div
+    className="composer-card flex items-center gap-2 rounded-3xl border px-3 py-2.5 shadow-lg"
+    style={{
+      backgroundColor: "var(--color-panel)",
+      borderColor: "var(--color-border)",
+    }}
+  >
+    <input
+      ref={fileInputRef}
+      type="file"
+      onChange={handleFileSelect}
+      className="hidden"
+    />
+
+    {/* Attach */}
+    <button
+      type="button"
+      onClick={() => fileInputRef.current?.click()}
+      className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm"
+      style={{
+        borderColor: "var(--color-border-strong)",
+        color: "var(--color-ink-muted)",
+      }}
+      aria-label="Attach file"
+    >
+      <Icon name="plus" className="h-4 w-4" />
+    </button>
+
+    {/* Prompt */}
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      className="flex-1 resize-none overflow-hidden bg-transparent px-2 py-2 text-base leading-6 text-ink outline-none placeholder:text-ink-faint"
+      placeholder="Ask anything..."
+      value={prompt}
+      onChange={(e) => setPrompt(e.target.value)}
+      onKeyDown={handleKeyDown}
+    />
+
+    {/* Shortcut hint */}
+    <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex whitespace-nowrap">
+      <Icon name="info" className="h-3.5 w-3.5" />
+      Shift + Enter for a new line
+    </span>
+
+    {/* Send */}
+    <button
+      type="button"
+      onClick={() => submit()}
+      disabled={!prompt.trim()}
+      className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+      style={{
+        backgroundColor: "var(--color-accent)",
+        color: "var(--color-accent-ink)",
+      }}
+      aria-label="Send message"
+    >
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        className="h-4 w-4"
+      >
+        <path
+          d="M3 10h13M10 3l7 7-7 7"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  </div>
+</div>
 
                 <div className="fade-in-up delay-3 mt-6">
                   <p className="mb-2.5 text-sm font-medium text-ink-muted drop-shadow">Try an example</p>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="grid w-full grid-cols-3 gap-3">
                     {EXAMPLES.map((ex) => (
                       <button
                         key={ex.title}
@@ -446,12 +530,14 @@ export default function App() {
 
               {/* Right Side Overlays */}
               <div className="hidden flex-1 relative lg:block pointer-events-none">
-                <div className="absolute right-10 top-6 font-mono text-xs uppercase tracking-widest text-white/95 drop-shadow-md">
+                <div className="absolute right-[70 rem] top-25 font-mono text-l uppercase tracking-widest text-ink drop-shadow-md">
                   <div>Local</div>
                   <div>Inference</div>
                   <div>Real</div>
                   <div>Impact</div>
-                  <div className="mt-2 h-px w-8 bg-white/80" />
+                  <div className="mt-2 h-px w-8 bg-white/80" 
+                   style={{ backgroundColor: theme === "light" ? "#17181a" : "#ffffff" }}
+                     />
                 </div>
               </div>
             </div>
