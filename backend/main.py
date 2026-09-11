@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db import init_db, seed_registry
 from app.routers.tasks import router as tasks_router
+from app.routers.sessions import router as sessions_router
+app.include_router(sessions_router)
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUTS_DIR = BASE_DIR / "outputs"

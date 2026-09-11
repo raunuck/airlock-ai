@@ -1,4 +1,6 @@
 import sqlite3
+import uuid
+import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,6 +56,29 @@ def init_db():
             tool_result TEXT,
             is_final INTEGER,
             timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # --- new: chat history tables ---
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT DEFAULT 'New chat',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT,
+            task_type TEXT,
+            model_used TEXT,
+            sources TEXT,
+            attachment_path TEXT,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
         )
     """)
     conn.commit()
@@ -116,5 +141,64 @@ def log_rag_query(prompt: str, sources: list[str], answer: str):
         "INSERT INTO rag_logs (prompt, sources, answer) VALUES (?, ?, ?)",
         (prompt, ", ".join(sources), answer),
     )
+    conn.commit()
+    conn.close()
+
+# --- new: chat session functions ---
+
+def create_session() -> str:
+    session_id = str(uuid.uuid4())
+    conn = get_connection()
+    conn.execute("INSERT INTO chat_sessions (id) VALUES (?)", (session_id,))
+    conn.commit()
+    conn.close()
+    return session_id
+
+def list_sessions():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, title, updated_at FROM chat_sessions ORDER BY updated_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_session_messages(session_id: str):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT role, content, task_type, model_used, sources, attachment_path, timestamp "
+        "FROM chat_messages WHERE session_id = ? ORDER BY id ASC",
+        (session_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def add_message(session_id: str, role: str, content: str, task_type=None,
+                 model_used=None, sources=None, attachment_path=None):
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO chat_messages (session_id, role, content, task_type, model_used, sources, attachment_path) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (session_id, role, content, task_type, model_used,
+         json.dumps(sources) if sources else None, attachment_path),
+    )
+    conn.execute(
+        "UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (session_id,)
+    )
+    conn.commit()
+    conn.close()
+
+def maybe_set_title(session_id: str, first_message: str):
+    conn = get_connection()
+    row = conn.execute("SELECT title FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+    if row and row["title"] == "New chat":
+        title = first_message.strip()[:48]
+        conn.execute("UPDATE chat_sessions SET title = ? WHERE id = ?", (title, session_id))
+        conn.commit()
+    conn.close()
+
+def delete_session(session_id: str):
+    conn = get_connection()
+    conn.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
     conn.commit()
     conn.close()
