@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas import TaskRequest, TaskResponse
-from app.db import log_task, log_rag_query, get_model_for_task
+from app.db import (
+    log_task, log_rag_query, get_model_for_task,
+    create_session, add_message, maybe_set_title,
+)
 from app.classifier import classify_task
 from rag.retrieval import answer_rag_query
 from llm_client import prompt as llm_prompt
@@ -16,6 +19,11 @@ TASK_TYPES_NEEDING_AGENT = {"code", "document"}
 def handle_task(req: TaskRequest):
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    # --- new: session bookkeeping, doesn't touch classification/routing below ---
+    session_id = req.session_id or create_session()
+    maybe_set_title(session_id, req.prompt)
+    add_message(session_id, "user", req.prompt, attachment_path=req.attachment_path)
 
     task_type = classify_task(req.prompt, req.previous_task_type)
 
@@ -53,9 +61,13 @@ def handle_task(req: TaskRequest):
         sources = None
         log_task(task_type, model_used, req.prompt, response_text)
 
+    # --- new: log assistant reply, return session_id ---
+    add_message(session_id, "assistant", response_text, task_type, model_used, sources)
+
     return TaskResponse(
         model_used=model_used,
         task_type=task_type,
         response=response_text,
         sources=sources,
+        session_id=session_id,
     )

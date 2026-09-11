@@ -16,8 +16,6 @@ const EXAMPLES = [
 const NAV_ITEMS = [
   { icon: "home", label: "Workbench" },
   { icon: "cube", label: "Model Hub" },
-  { icon: "gear", label: "Settings" },
-  { icon: "monitor", label: "System" },
   { icon: "file", label: "Docs" },
 ];
 
@@ -79,6 +77,11 @@ export default function App() {
     nextIdRef.current += 1;
     return nextIdRef.current;
   }
+  
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [attachment, setAttachment] = useState(null); // { path, filename }
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -106,7 +109,61 @@ export default function App() {
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
   }, [prompt]);
 
-  async function submit(overridePrompt) {
+    useEffect(() => {
+    fetch("http://localhost:8000/sessions")
+      .then((r) => r.json())
+      .then(setSessions)
+      .catch(() => {});
+  }, []);
+
+  async function refreshSessions() {
+    try {
+      const r = await fetch("http://localhost:8000/sessions");
+      setSessions(await r.json());
+    } catch {
+      /* non-fatal — sidebar just won't update this cycle */
+    }
+  }
+
+  async function loadSession(id) {
+    const r = await fetch(`http://localhost:8000/sessions/${id}/messages`);
+    const msgs = await r.json();
+    setMessages(
+      msgs.map((m) => ({
+        id: nextId(),
+        role: m.role,
+        content: m.content,
+        taskType: m.task_type,
+        modelUsed: m.model_used,
+        sources: m.sources ? JSON.parse(m.sources) : null,
+      }))
+    );
+    setCurrentSessionId(id);
+  }
+
+  function startNewChat() {
+    setMessages([]);
+    setCurrentSessionId(null);
+    setAttachment(null);
+    setPrompt("");
+  }
+
+  async function handleFileSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("http://localhost:8000/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      setAttachment({ path: data.path, filename: data.filename });
+    } catch {
+      setAttachment(null);
+    }
+    e.target.value = "";
+  }
+
+    async function submit(overridePrompt) {
     const trimmedPrompt = (overridePrompt ?? prompt).trim();
     if (!trimmedPrompt || loading) return;
 
@@ -121,6 +178,8 @@ export default function App() {
         body: JSON.stringify({
           prompt: trimmedPrompt,
           previous_task_type: previousTaskType,
+          session_id: currentSessionId,
+          attachment_path: attachment?.path || null,
         }),
       });
       const data = await res.json();
@@ -143,6 +202,9 @@ export default function App() {
             sources: data.sources,
           },
         ]);
+        setCurrentSessionId(data.session_id);
+        setAttachment(null);
+        refreshSessions();
       }
     } catch (err) {
       setMessages((prev) => [
@@ -215,6 +277,36 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="mt-6 flex items-center justify-between px-1">
+          <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">History</span>
+          <button
+            type="button"
+            onClick={startNewChat}
+            className="flex h-6 w-6 items-center justify-center rounded-full"
+            style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }}
+            aria-label="New chat"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="mt-2 flex-1 overflow-y-auto">
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => loadSession(s.id)}
+              className="block w-full truncate rounded-lg px-2.5 py-2 text-left text-sm"
+              style={
+                s.id === currentSessionId
+                  ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
+                  : { color: "var(--color-ink-muted)" }
+              }
+            >
+              {s.title || "New chat"}
+            </button>
+          ))}
+        </div>
 
         <div className="mt-auto">
           <div className="rounded-2xl border p-3.5" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-panel)", boxShadow: "var(--shadow-card)" }}>
@@ -265,13 +357,6 @@ export default function App() {
             >
               U
             </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full shadow-sm"
-              style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
-            >
-              <Icon name="gear" className="h-4 w-4" />
-            </button>
           </div>
         </header>
 
@@ -305,8 +390,16 @@ export default function App() {
                     />
                     <div className="mt-2 flex items-center justify-between px-1">
                       <div className="flex items-center gap-2">
-                        <IconPill><Icon name="plus" className="h-4 w-4" /></IconPill>
-                        <TextPill icon="sliders" label="Tools" />
+                        <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="send-button flex h-9 w-9 items-center justify-center rounded-xl border disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                          style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
+                          aria-label="Attach file"
+                        >
+                          <Icon name="plus" className="h-4 w-4" />
+                        </button>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex">
@@ -425,6 +518,22 @@ export default function App() {
           <div className="relative z-10 px-6 pb-5 pt-2">
             <div className="composer-enter mx-auto max-w-3xl">
               <div className="flex items-end gap-2 rounded-3xl border p-2 shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
+                <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border"
+                  style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
+                  aria-label="Attach file"
+                >
+                  <Icon name="plus" className="h-4 w-4" />
+                </button>
+                {attachment && (
+                  <div className="mb-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs" style={{ backgroundColor: "var(--color-panel-raised)" }}>
+                    <span className="truncate text-ink-muted">{attachment.filename}</span>
+                    <button type="button" onClick={() => setAttachment(null)} className="text-ink-faint hover:text-ink">✕</button>
+                  </div>
+                )}
                 <textarea
                   ref={textareaRef}
                   className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base leading-[1.6] text-ink outline-none placeholder:text-ink-faint disabled:opacity-60"
