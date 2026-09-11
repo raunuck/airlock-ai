@@ -12,7 +12,7 @@ DEFAULT_TASK_MODELS = [
     ("document", "qwen2.5:7b"),
     ("code", "qwen2.5-coder:7b"),
     ("rag_query", "qwen2.5:7b"),
-    ("image", "llava:7b"),
+    ("image", "qwen2.5:7b"),
     ("general", "qwen2.5:7b"),
 ]
 
@@ -230,12 +230,15 @@ def get_model_for_task(task_type: str) -> str:
         "code": "qwen2.5-coder:7b",
         "document": "qwen2.5:7b",
         "rag_query": "qwen2.5:7b",
+        "image": "qwen2.5:7b",
         "general": "qwen2.5:7b",
     }
     return fallbacks.get(task_type, "qwen2.5:7b")
 
 def seed_registry():
     conn = get_connection()
+    # Migrate any legacy llava model entries
+    conn.execute("UPDATE model_registry SET model_name = 'qwen2.5:7b' WHERE model_name LIKE '%llava%'")
     for task_type, model_name in DEFAULT_TASK_MODELS:
         existing = conn.execute(
             "SELECT COUNT(*) FROM model_registry WHERE task_type = ?", (task_type,)

@@ -21,7 +21,6 @@ const NAV_ITEMS = [
 const MODELS = [
   "qwen2.5:7b",
   "qwen2.5-coder:7b",
-  "llava:7b",
   "qwen2.5:3b",
   "qwen2.5-coder:3b",
 ];
@@ -241,8 +240,11 @@ export default function App() {
   }
 
   async function submit(overridePrompt) {
-    const trimmedPrompt = (overridePrompt ?? prompt).trim();
-    if (!trimmedPrompt || loading) return;
+    const rawPrompt = (overridePrompt ?? prompt).trim();
+    if (!rawPrompt && !attachment) return;
+    if (loading) return;
+
+    const trimmedPrompt = rawPrompt || "Extract and transcribe all text from this image.";
 
     setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmedPrompt }]);
     setPrompt("");
@@ -646,7 +648,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => submit()}
-                        disabled={!prompt.trim()}
+                        disabled={!prompt.trim() && !attachment}
                         className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
                         style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
                         aria-label="Send message"
@@ -790,7 +792,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => submit()}
-                    disabled={loading || !prompt.trim()}
+                    disabled={loading || (!prompt.trim() && !attachment)}
                     className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
                     style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
                   >

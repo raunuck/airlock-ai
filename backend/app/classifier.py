@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-VALID_TASK_TYPES = {"code", "document", "rag_query", "general"}
+VALID_TASK_TYPES = {"code", "document", "rag_query", "general", "image"}
 
 def _contains_word_or_phrase(text: str, terms: list[str]) -> bool:
     for term in terms:
@@ -32,14 +32,23 @@ def classify_task(prompt: str, previous_task_type: Optional[str] = None) -> str:
         "standard operating procedure", "operating procedure"
     ]
 
+    image_keywords = [
+        "ocr", "extract text", "read image", "image text", "tesseract",
+        "scan text", "analyze image", "from image", "in this image"
+    ]
+
     doc_keywords = [
         "scanned", "report", "approval note", "inspection",
-        "upload", "ocr", "extract text", "draft note", "image note"
+        "upload", "draft note", "image note"
     ]
 
     # Explicit SOP / procedure / knowledge base query
     if _contains_word_or_phrase(prompt_lower, rag_keywords):
         return "rag_query"
+
+    # Image / OCR query
+    if _contains_word_or_phrase(prompt_lower, image_keywords):
+        return "image"
 
     # Document or scanned image processing
     if _contains_word_or_phrase(prompt_lower, doc_keywords):
