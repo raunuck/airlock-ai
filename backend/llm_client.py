@@ -66,12 +66,12 @@ def chat(
 
     except Exception as e:
         err_str = str(e).lower()
-        print(f"DEBUG - actual error was: {err_str}")
+        print(f"DEBUG - Ollama error with model '{model_name}': {err_str}")
         
-        # Check if the error is related to insufficient system memory / RAM / VRAM allocation
-        if any(k in err_str for k in ["memory", "system memory", "oom", "cudamalloc", "allocate", "allocation"]) and model_name in FALLBACK_MODELS:
+        # If a fallback model is configured for this model, automatically attempt recovery
+        if model_name in FALLBACK_MODELS:
             fallback_model = FALLBACK_MODELS[model_name]
-            print(f"⚠️ Memory limitation hit for {model_name}. Automatically falling back to {fallback_model}...")
+            print(f"[FALLBACK] Primary model '{model_name}' failed ({e}). Automatically falling back to '{fallback_model}'...")
             
             try:
                 response = ollama.chat(
@@ -84,12 +84,12 @@ def chat(
                 }
             except Exception as fallback_error:
                 raise RuntimeError(
-                    f"Failed to communicate with Ollama using fallback model {fallback_model}. "
-                    f"Original error: {fallback_error}"
+                    f"Failed to communicate with Ollama using primary model '{model_name}' and fallback model '{fallback_model}'. "
+                    f"Primary error: {e} | Fallback error: {fallback_error}"
                 ) from fallback_error
 
         raise RuntimeError(
-            f"Failed to communicate with Ollama. "
+            f"Failed to communicate with Ollama for model '{model_name}'. "
             f"Please make sure the Ollama server is running. "
             f"Original error: {e}"
         ) from e

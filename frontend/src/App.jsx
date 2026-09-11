@@ -64,6 +64,7 @@ function Icon({ name, className = "h-5 w-5" }) {
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState("");
+  const [previousTaskType, setPreviousTaskType] = useState(null);
   const [loading, setLoading] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const [theme, setTheme] = useState("light");
@@ -176,6 +177,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: trimmedPrompt,
+          previous_task_type: previousTaskType,
           session_id: currentSessionId,
           attachment_path: attachment?.path || null,
         }),
@@ -188,6 +190,7 @@ export default function App() {
           { id: nextId(), role: "assistant", isError: true, content: data.detail || "An error occurred" },
         ]);
       } else {
+        setPreviousTaskType(data.task_type || null);
         setMessages((prev) => [
           ...prev,
           {
@@ -215,6 +218,7 @@ export default function App() {
   function clearWorkspace() {
     setMessages([]);
     setPrompt("");
+    setPreviousTaskType(null);
   }
 
   function handleKeyDown(e) {
