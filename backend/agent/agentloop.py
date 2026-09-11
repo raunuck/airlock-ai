@@ -89,11 +89,24 @@ print("helloworld")
 """
 
 
-def run_agent(user_goal: str, max_steps: int = 5, model_key: str = "general") -> dict:
+def run_agent(
+    user_goal: str,
+    max_steps: int = 5,
+    model_key: str = "general",
+    conversation_history: list[dict] | None = None,
+) -> dict:
     run_id = str(uuid.uuid4())
-    history = [
-        {"role": "user", "content": user_goal}
-    ]
+    
+    history = []
+    if conversation_history:
+        for msg in conversation_history:
+            if msg.get("content"):
+                history.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg["content"],
+                })
+
+    history.append({"role": "user", "content": user_goal})
 
     steps = []
 

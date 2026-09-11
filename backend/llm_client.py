@@ -11,13 +11,12 @@ MODELS = {
     "code": "qwen2.5-coder:7b",
     "coding": "qwen2.5-coder:7b",
     "rag_query": "qwen2.5:7b",
-    "image": "llava:7b"
+    "image": "qwen2.5:7b"
 }
 
 FALLBACK_MODELS = {
     "qwen2.5:7b": "qwen2.5:3b",
     "qwen2.5-coder:7b": "qwen2.5-coder:3b",
-    "llava:7b": "llava:3b"
 }
 
 DEFAULT_MODEL = "general"

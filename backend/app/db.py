@@ -12,7 +12,7 @@ DEFAULT_TASK_MODELS = [
     ("document", "qwen2.5:7b"),
     ("code", "qwen2.5-coder:7b"),
     ("rag_query", "qwen2.5:7b"),
-    ("image", "llava:7b"),
+    ("image", "qwen2.5:7b"),
     ("general", "qwen2.5:7b"),
 ]
 
@@ -163,6 +163,34 @@ def get_session_messages(session_id: str, user_id: str):
     conn.close()
     return [dict(r) for r in rows]
 
+def get_session_history_for_llm(session_id: str, limit: int = 6) -> list[dict]:
+    """
+    Retrieves the last `limit` messages for a session formatted for chat LLMs.
+    Returns a list of dicts: [{"role": "user"|"assistant", "content": "..."}]
+    ordered chronologically (oldest to newest).
+    """
+    if not session_id:
+        return []
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT role, content FROM chat_messages "
+        "WHERE session_id = ? AND content IS NOT NULL AND TRIM(content) != '' "
+        "ORDER BY id DESC LIMIT ?",
+        (session_id, limit),
+    ).fetchall()
+    conn.close()
+
+    history = []
+    for r in reversed(rows):
+        role = r["role"]
+        if role not in ("user", "assistant", "system"):
+            role = "user"
+        history.append({
+            "role": role,
+            "content": r["content"],
+        })
+    return history
+
 def add_message(session_id: str, role: str, content: str, task_type=None,
                  model_used=None, sources=None, attachment_path=None):
     conn = get_connection()
@@ -230,12 +258,15 @@ def get_model_for_task(task_type: str) -> str:
         "code": "qwen2.5-coder:7b",
         "document": "qwen2.5:7b",
         "rag_query": "qwen2.5:7b",
+        "image": "qwen2.5:7b",
         "general": "qwen2.5:7b",
     }
     return fallbacks.get(task_type, "qwen2.5:7b")
 
 def seed_registry():
     conn = get_connection()
+    # Migrate any legacy llava model entries
+    conn.execute("UPDATE model_registry SET model_name = 'qwen2.5:7b' WHERE model_name LIKE '%llava%'")
     for task_type, model_name in DEFAULT_TASK_MODELS:
         existing = conn.execute(
             "SELECT COUNT(*) FROM model_registry WHERE task_type = ?", (task_type,)
