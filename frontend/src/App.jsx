@@ -58,6 +58,12 @@ function Icon({ name, className = "h-5 w-5" }) {
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.01" /></svg>;
     case "doc":
       return <svg {...common}><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M9 13h6M9 17h6" /></svg>;
+    case "cpu":
+      return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" /></svg>;
+    case "ram":
+      return <svg {...common}><path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" /><path d="M6 10v4M10 10v4M14 10v4M18 10v4M6 18v2M10 18v2M14 18v2M18 18v2" /></svg>;
+    case "gpu":
+      return <svg {...common}><rect x="2" y="5" width="20" height="14" rx="2" /><circle cx="8" cy="12" r="2.5" /><circle cx="16" cy="12" r="2.5" /><path d="M6 19v2M10 19v2M14 19v2M18 19v2" /></svg>;
     case "code":
       return <svg {...common}><path d="m9 8-4 4 4 4M15 8l4 4-4 4" /></svg>;
     case "image":
@@ -100,7 +106,35 @@ export default function App() {
   const [attachment, setAttachment] = useState(null);
   const fileInputRef = useRef(null);
 
+  const [systemStats, setSystemStats] = useState({
+    cpu: { percent: 0, cores: 1 },
+    ram: { used_gb: 0, total_gb: 0, percent: 0 },
+    gpu: { available: false, name: "N/A", percent: 0, memory_used_gb: 0, memory_total_gb: 0, memory_percent: 0 },
+  });
+
   const activeUserId = user?.user_id || user?.id;
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSystemMetrics = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/system/resources");
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setSystemStats(data);
+        }
+      } catch (err) {
+        // Backend temporarily reloading/unavailable
+      }
+    };
+
+    fetchSystemMetrics();
+    const interval = setInterval(fetchSystemMetrics, 2500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -555,10 +589,28 @@ export default function App() {
                 Logout
               </button>
             </div>
-            <div className="mt-3 flex flex-col gap-2 text-xs">
-              <StatRow icon="cpu" label="CPU" value="12%" />
-              <StatRow icon="ram" label="RAM" value="3.4 / 16 GB" />
-              <StatRow icon="gpu" label="GPU" value="0%" />
+            <div className="mt-3 flex flex-col gap-2.5 text-xs">
+              <StatRow
+                icon="cpu"
+                label="CPU"
+                percent={systemStats.cpu.percent}
+                value={`${Math.round(systemStats.cpu.percent)}%`}
+                tooltip={`CPU Usage: ${systemStats.cpu.percent}% (${systemStats.cpu.cores} cores)`}
+              />
+              <StatRow
+                icon="ram"
+                label="RAM"
+                percent={systemStats.ram.percent}
+                value={`${systemStats.ram.used_gb} / ${systemStats.ram.total_gb} GB`}
+                tooltip={`RAM Usage: ${systemStats.ram.used_gb} GB / ${systemStats.ram.total_gb} GB (${systemStats.ram.percent}%)`}
+              />
+              <StatRow
+                icon="gpu"
+                label="GPU"
+                percent={systemStats.gpu.available ? systemStats.gpu.percent : 0}
+                value={systemStats.gpu.available ? `${Math.round(systemStats.gpu.percent)}%` : "0%"}
+                tooltip={systemStats.gpu.available ? `${systemStats.gpu.name} (${systemStats.gpu.memory_used_gb}/${systemStats.gpu.memory_total_gb} GB VRAM)` : "No dedicated GPU detected"}
+              />
             </div>
           </div>
           <div className="mt-3 px-1 text-xs text-ink-faint">Airlock AI v0.1.0</div>
@@ -863,14 +915,37 @@ function Feature({ icon, title, subtitle }) {
   );
 }
 
-function StatRow({ icon, label, value }) {
+function StatRow({ icon, label, percent = 0, value, tooltip }) {
+  const clampedPercent = Math.min(100, Math.max(0, Math.round(percent || 0)));
+  let barColor = "var(--color-accent)";
+  if (clampedPercent >= 90) {
+    barColor = "var(--color-error, #e0455a)";
+  } else if (clampedPercent >= 75) {
+    barColor = "#f59e0b";
+  }
+
   return (
-    <div className="flex items-center justify-between text-ink-muted text-xs">
-      <span className="flex items-center gap-1.5">
-        <Icon name={icon === "cpu" ? "monitor" : icon === "ram" ? "box" : "gpu"} className="h-3.5 w-3.5" />
-        {label}
-      </span>
-      <span className="font-medium text-ink">{value}</span>
+    <div className="group flex flex-col gap-1.5 text-xs" title={tooltip || `${label}: ${value}`}>
+      <div className="flex items-center justify-between text-ink-muted group-hover:text-ink transition-colors">
+        <span className="flex items-center gap-1.5">
+          <Icon name={icon} className="h-3.5 w-3.5 shrink-0" />
+          <span className="font-medium">{label}</span>
+        </span>
+        <span className="font-semibold text-ink font-mono text-[11px]">{value}</span>
+      </div>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full transition-colors"
+        style={{ backgroundColor: "rgba(128, 128, 128, 0.16)" }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{
+            width: `${clampedPercent}%`,
+            backgroundColor: barColor,
+            boxShadow: clampedPercent > 80 ? `0 0 6px ${barColor}` : "none",
+          }}
+        />
+      </div>
     </div>
   );
 }
