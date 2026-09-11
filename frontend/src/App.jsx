@@ -17,7 +17,6 @@ const NAV_ITEMS = [
   { icon: "home", label: "Workbench" },
   { icon: "cube", label: "Model Hub" },
   { icon: "file", label: "Docs" },
-  
 ];
 const MODELS = [
   "qwen2.5:7b",
@@ -70,6 +69,16 @@ function Icon({ name, className = "h-5 w-5" }) {
 }
 
 export default function App() {
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("airlock_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [authMode, setAuthMode] = useState("login");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState("");
   const [previousTaskType, setPreviousTaskType] = useState(null);
@@ -89,8 +98,10 @@ export default function App() {
   
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [attachment, setAttachment] = useState(null); // { path, filename }
+  const [attachment, setAttachment] = useState(null);
   const fileInputRef = useRef(null);
+
+  const activeUserId = user?.user_id || user?.id;
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -118,24 +129,65 @@ export default function App() {
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
   }, [prompt]);
 
-    useEffect(() => {
-    fetch("http://localhost:8000/sessions")
+  useEffect(() => {
+    if (!activeUserId) return;
+    fetch("http://localhost:8000/sessions", {
+      headers: { "user_id": activeUserId }
+    })
       .then((r) => r.json())
-      .then(setSessions)
+      .then((data) => {
+        if (Array.isArray(data)) setSessions(data);
+      })
       .catch(() => {});
-  }, []);
+  }, [activeUserId]);
 
-  async function refreshSessions() {
+  async function handleAuth(e) {
+    e.preventDefault();
+    setAuthError("");
+    const endpoint = authMode === "login" ? "/auth/login" : "/auth/register";
     try {
-      const r = await fetch("http://localhost:8000/sessions");
-      setSessions(await r.json());
+      const res = await fetch(`http://localhost:8000${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: authUsername, password: authPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.detail || "Authentication failed");
+      } else {
+        const userData = { user_id: data.user_id || data.id, username: data.username };
+        setUser(userData);
+        localStorage.setItem("airlock_user", JSON.stringify(userData));
+      }
     } catch {
-      /* non-fatal — sidebar just won't update this cycle */
+      setAuthError("Backend unreachable");
     }
   }
 
+  function handleLogout() {
+    setUser(null);
+    localStorage.removeItem("airlock_user");
+    setSessions([]);
+    setMessages([]);
+    setCurrentSessionId(null);
+  }
+
+  async function refreshSessions() {
+    if (!activeUserId) return;
+    try {
+      const r = await fetch("http://localhost:8000/sessions", {
+        headers: { "user_id": activeUserId }
+      });
+      const data = await r.json();
+      if (Array.isArray(data)) setSessions(data);
+    } catch {}
+  }
+
   async function loadSession(id) {
-    const r = await fetch(`http://localhost:8000/sessions/${id}/messages`);
+    if (!activeUserId) return;
+    const r = await fetch(`http://localhost:8000/sessions/${id}/messages`, {
+      headers: { "user_id": activeUserId }
+    });
     const msgs = await r.json();
     setMessages(
       msgs.map((m) => ({
@@ -155,6 +207,7 @@ export default function App() {
     setCurrentSessionId(null);
     setAttachment(null);
     setPrompt("");
+    setPreviousTaskType(null);
   }
 
   async function handleFileSelect(e) {
@@ -164,15 +217,30 @@ export default function App() {
     formData.append("file", file);
     try {
       const res = await fetch("http://localhost:8000/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Upload failed:", res.status, errText);
+        setAttachment(null);
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "assistant", isError: true, content: `File upload failed (${res.status}). Check console.` },
+        ]);
+        return;
+      }
       const data = await res.json();
       setAttachment({ path: data.path, filename: data.filename });
-    } catch {
+    } catch (err) {
+      console.error("Upload error:", err);
       setAttachment(null);
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "assistant", isError: true, content: "Upload failed — backend unreachable or /upload route missing." },
+      ]);
     }
     e.target.value = "";
   }
 
-    async function submit(overridePrompt) {
+  async function submit(overridePrompt) {
     const trimmedPrompt = (overridePrompt ?? prompt).trim();
     if (!trimmedPrompt || loading) return;
 
@@ -183,7 +251,10 @@ export default function App() {
     try {
       const res = await fetch("http://localhost:8000/task", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "user_id": activeUserId
+        },
         body: JSON.stringify({
           prompt: trimmedPrompt,
           previous_task_type: previousTaskType,
@@ -250,6 +321,95 @@ export default function App() {
     return JSON.stringify(detail, null, 2);
   };
 
+  if (!user) {
+    return (
+      <main className="flex h-screen w-full items-center justify-center font-sans text-ink overflow-hidden" style={{ backgroundColor: "var(--color-base)" }}>
+        <div className="w-full max-w-md rounded-3xl border p-8 shadow-xl backdrop-blur-md" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="logo-mark relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl">
+              <img src={airlockLogo} alt="Airlock AI logo" className="relative h-full w-full object-contain" draggable="false" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-ink">Airlock AI</h1>
+              <p className="text-xs text-ink-muted">Secure Local Intelligence</p>
+            </div>
+          </div>
+
+          <div className="flex rounded-xl p-1 mb-6" style={{ backgroundColor: "var(--color-panel-raised)" }}>
+            <button
+              type="button"
+              onClick={() => { setAuthMode("login"); setAuthError(""); }}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${authMode === "login" ? "" : "text-ink-muted"}`}
+              style={authMode === "login" ? { backgroundColor: "var(--color-panel)", color: "var(--color-ink)", boxShadow: "var(--shadow-card)" } : {}}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode("register"); setAuthError(""); }}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${authMode === "register" ? "" : "text-ink-muted"}`}
+              style={authMode === "register" ? { backgroundColor: "var(--color-panel)", color: "var(--color-ink)", boxShadow: "var(--shadow-card)" } : {}}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {authError && (
+            <div className="mb-4 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "var(--color-error)", color: "var(--color-error)", backgroundColor: "rgba(224,69,90,0.08)" }}>
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">Username</label>
+              <input
+                type="text"
+                required
+                className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-ink outline-none bg-transparent"
+                style={{ borderColor: "var(--color-border-strong)" }}
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+                placeholder="Enter your username"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">Password</label>
+              <input
+                type="password"
+                required
+                className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-ink outline-none bg-transparent"
+                style={{ borderColor: "var(--color-border-strong)" }}
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="mt-2 flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold transition shadow-sm"
+              style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+            >
+              {authMode === "login" ? "Access Workbench" : "Register Account"}
+            </button>
+          </form>
+
+          <div className="mt-6 flex items-center justify-between border-t pt-4 text-xs text-ink-faint" style={{ borderColor: "var(--color-border)" }}>
+            <span>Air-Gapped & Encrypted Locally</span>
+            <button
+              type="button"
+              onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+              className="hover:text-ink font-medium underline"
+            >
+              Toggle Theme
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const hasStarted = messages.length > 0 || loading;
 
   return (
@@ -270,71 +430,52 @@ export default function App() {
         </div>
 
         <nav className="mt-8 flex flex-col gap-1">
-  {NAV_ITEMS.map((item, idx) => (
-    <div key={item.label} className="w-full">
-      <button
-        type="button"
-        onClick={() => {
-          if (item.label === "Model Hub") {
-            setShowModels((prev) => !prev);
-          }
-        }}
-        className="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
-        style={
-          idx === 0
-            ? {
-                backgroundColor: "var(--color-accent-soft)",
-                color: "var(--color-accent-strong)",
-              }
-            : {
-                color: "var(--color-ink-muted)",
-              }
-        }
-      >
-       <div className="flex items-center gap-3">
-  <Icon name={item.icon} className="h-[18px] w-[18px]" />
-  {item.label}
-</div>
+          {NAV_ITEMS.map((item, idx) => (
+            <div key={item.label} className="w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  if (item.label === "Model Hub") {
+                    setShowModels((prev) => !prev);
+                  }
+                }}
+                className="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+                style={
+                  idx === 0
+                    ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
+                    : { color: "var(--color-ink-muted)" }
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <Icon name={item.icon} className="h-[18px] w-[18px]" />
+                  {item.label}
+                </div>
+                {item.label === "Model Hub" && (
+                  <Icon name="chevron" className={`ml-auto h-3.5 w-3.5 transition-transform ${showModels ? "rotate-180" : ""}`} />
+                )}
+              </button>
 
-{item.label === "Model Hub" && (
-  <Icon
-    name="chevron"
-    className={`ml-auto h-3.5 w-3.5 transition-transform ${
-      showModels ? "rotate-180" : ""
-    }`}
-  />
-)}
-      </button>
-
-      {item.label === "Model Hub" && (
-  <div
-    className={`ml-9 grid overflow-hidden transition-all duration-300 ease-in-out ${
-      showModels ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-    }`}
-  >
-    <div className="min-h-0 flex flex-col gap-1">
-      {MODELS.map((model) => (
-        <div
-          key={model}
-          className="px-2 py-1.5 font-mono text-xs"
-          style={{ color: "var(--color-ink-muted)" }}
-        >
-          {model}
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-    </div>
-  ))}
-</nav>
+              {item.label === "Model Hub" && (
+                <div className={`ml-9 grid overflow-hidden transition-all duration-300 ease-in-out ${showModels ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                  <div className="min-h-0 flex flex-col gap-1">
+                    {MODELS.map((model) => (
+                      <div key={model} className="px-2 py-1.5 font-mono text-xs" style={{ color: "var(--color-ink-muted)" }}>
+                        {model}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
       
         <div className="mt-6 flex items-center justify-between px-1">
           <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">History</span>
           <button
             type="button"
             onClick={startNewChat}
-            className="flex h-6 w-6 items-center justify-center rounded-full"
+            className="flex h-6 w-6 items-center justify-center rounded-full transition hover:opacity-80"
             style={{ backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }}
             aria-label="New chat"
           >
@@ -342,31 +483,43 @@ export default function App() {
           </button>
         </div>
 
-        <div className="mt-2 flex-1 overflow-y-auto">
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => loadSession(s.id)}
-              className="block w-full truncate rounded-lg px-2.5 py-2 text-left text-sm"
-              style={
-                s.id === currentSessionId
-                  ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
-                  : { color: "var(--color-ink-muted)" }
-              }
-            >
-              {s.title || "New chat"}
-            </button>
-          ))}
+        <div className="mt-2 flex-1 overflow-y-auto flex flex-col gap-1 pr-1">
+          {sessions.length === 0 ? (
+            <div className="px-2 py-3 text-xs text-ink-faint italic">No chat history yet</div>
+          ) : (
+            sessions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => loadSession(s.id)}
+                className="w-full truncate rounded-xl px-3 py-2 text-left text-sm transition font-medium"
+                style={
+                  s.id === currentSessionId
+                    ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
+                    : { color: "var(--color-ink-muted)", backgroundColor: "transparent" }
+                }
+              >
+                {s.title || "New chat"}
+              </button>
+            ))
+          )}
         </div>
 
-        <div className="mt-auto">
+        <div className="mt-auto pt-2">
           <div className="rounded-2xl border p-3.5" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-panel)", boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-2 text-sm font-medium text-ink">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
-              Local Mode
+            <div className="flex items-center justify-between text-sm font-medium text-ink mb-2">
+              <span className="flex items-center gap-2 truncate">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: "var(--color-accent)" }} />
+                <span className="truncate">{user.username}</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-xs text-ink-muted hover:text-ink underline shrink-0 ml-1"
+              >
+                Logout
+              </button>
             </div>
-            <div className="mt-0.5 text-xs text-ink-faint">No external calls</div>
             <div className="mt-3 flex flex-col gap-2 text-xs">
               <StatRow icon="cpu" label="CPU" value="12%" />
               <StatRow icon="ram" label="RAM" value="3.4 / 16 GB" />
@@ -387,7 +540,7 @@ export default function App() {
         />
 
         {/* Top Header */}
-        <header className="relative z-10 flex items-center justify-between gap-4 px-8 py-4 shrink-0">
+        <header className="relative z-30 flex items-center justify-between gap-4 px-8 py-4 shrink-0">
           <div className="status-badge flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "rgba(139,197,63,0.4)", color: "var(--color-accent-strong)" }}>
             <Icon name="lock" className="h-3.5 w-3.5" />
             <span className="font-mono tracking-wide">AIR-GAPPED · LOCAL ONLY</span>
@@ -401,14 +554,36 @@ export default function App() {
             >
               <Icon name={theme === "light" ? "moon" : "sun"} className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              aria-label="User Profile"
-              className="flex h-9 w-9 items-center justify-center rounded-full border transition shadow-sm font-semibold text-xs"
-              style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink)" }}
-            >
-              U
-            </button>
+            
+            {/* Profile Dropdown Container */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProfileMenu((prev) => !prev)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border transition shadow-sm font-semibold text-xs uppercase"
+                style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink)" }}
+                title={user.username}
+                aria-label="User Profile Menu"
+              >
+                {user.username.charAt(0)}
+              </button>
+
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-2xl border p-2 shadow-xl z-50 backdrop-blur-md" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)", boxShadow: "var(--shadow-card)" }}>
+                  <div className="px-3 py-2 border-b" style={{ borderColor: "var(--color-border)" }}>
+                    <p className="text-xs font-semibold text-ink truncate">{user.username}</p>
+                    <p className="text-[10px] text-ink-faint">Signed in locally</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowProfileMenu(false); handleLogout(); }}
+                    className="w-full mt-1.5 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition text-left text-error hover:bg-black/5 dark:hover:bg-white/5"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -416,7 +591,6 @@ export default function App() {
         <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden w-full">
           {!hasStarted ? (
             <div className="flex min-h-full w-full relative pb-12">
-              
               <div className="flex w-full max-w-[920px] flex-col justify-center px-8 py-6 sm:px-12">
                 <h1 className="fade-in-up text-[48px] font-semibold leading-[1.08] tracking-tight text-ink drop-shadow-md">
                   Your Ideas.
@@ -429,80 +603,61 @@ export default function App() {
                   Run powerful AI models locally, with complete control.
                 </p>
 
-               <div className="fade-in-up delay-3 composer-enter mt-8">
-  <div
-    className="composer-card flex items-center gap-2 rounded-3xl border px-3 py-2.5 shadow-lg"
-    style={{
-      backgroundColor: "var(--color-panel)",
-      borderColor: "var(--color-border)",
-    }}
-  >
-    <input
-      ref={fileInputRef}
-      type="file"
-      onChange={handleFileSelect}
-      className="hidden"
-    />
+                <div className="fade-in-up delay-3 composer-enter mt-8">
+                  <div
+                    className="composer-card flex flex-col rounded-3xl border p-3.5 shadow-lg"
+                    style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}
+                  >
+                    <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+                    
+                    {attachment && (
+                      <div className="mb-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs w-fit" style={{ backgroundColor: "var(--color-panel-raised)" }}>
+                        <span className="truncate text-ink-muted">{attachment.filename}</span>
+                        <button type="button" onClick={() => setAttachment(null)} className="text-ink-faint hover:text-ink">✕</button>
+                      </div>
+                    )}
 
-    {/* Attach */}
-    <button
-      type="button"
-      onClick={() => fileInputRef.current?.click()}
-      className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm"
-      style={{
-        borderColor: "var(--color-border-strong)",
-        color: "var(--color-ink-muted)",
-      }}
-      aria-label="Attach file"
-    >
-      <Icon name="plus" className="h-4 w-4" />
-    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm"
+                        style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
+                        aria-label="Attach file"
+                      >
+                        <Icon name="plus" className="h-4 w-4" />
+                      </button>
 
-    {/* Prompt */}
-    <textarea
-      ref={textareaRef}
-      rows={1}
-      className="flex-1 resize-none overflow-hidden bg-transparent px-2 py-2 text-base leading-6 text-ink outline-none placeholder:text-ink-faint"
-      placeholder="Ask anything..."
-      value={prompt}
-      onChange={(e) => setPrompt(e.target.value)}
-      onKeyDown={handleKeyDown}
-    />
+                      <textarea
+                        ref={textareaRef}
+                        rows={1}
+                        className="flex-1 resize-none overflow-hidden bg-transparent px-2 py-2 text-base leading-6 text-ink outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                        placeholder="Ask anything..."
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                      />
 
-    {/* Shortcut hint */}
-    <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex whitespace-nowrap">
-      <Icon name="info" className="h-3.5 w-3.5" />
-      Shift + Enter for a new line
-    </span>
+                      <span className="hidden items-center gap-1 text-xs text-ink-faint sm:flex whitespace-nowrap">
+                        <Icon name="info" className="h-3.5 w-3.5" />
+                        Shift + Enter for a new line
+                      </span>
 
-    {/* Send */}
-    <button
-      type="button"
-      onClick={() => submit()}
-      disabled={!prompt.trim()}
-      className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
-      style={{
-        backgroundColor: "var(--color-accent)",
-        color: "var(--color-accent-ink)",
-      }}
-      aria-label="Send message"
-    >
-      <svg
-        viewBox="0 0 20 20"
-        fill="none"
-        className="h-4 w-4"
-      >
-        <path
-          d="M3 10h13M10 3l7 7-7 7"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
-  </div>
-</div>
+                      <button
+                        type="button"
+                        onClick={() => submit()}
+                        disabled={!prompt.trim()}
+                        className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                        style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+                        aria-label="Send message"
+                      >
+                        <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                          <path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="fade-in-up delay-3 mt-6">
                   <p className="mb-2.5 text-sm font-medium text-ink-muted drop-shadow">Try an example</p>
@@ -528,16 +683,13 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Side Overlays */}
               <div className="hidden flex-1 relative lg:block pointer-events-none">
                 <div className="absolute right-[70 rem] top-25 font-mono text-l uppercase tracking-widest text-ink drop-shadow-md">
                   <div>Local</div>
                   <div>Inference</div>
                   <div>Real</div>
                   <div>Impact</div>
-                  <div className="mt-2 h-px w-8 bg-white/80" 
-                   style={{ backgroundColor: theme === "light" ? "#17181a" : "#ffffff" }}
-                     />
+                  <div className="mt-2 h-px w-8" style={{ backgroundColor: theme === "light" ? "#17181a" : "#ffffff" }} />
                 </div>
               </div>
             </div>
@@ -603,46 +755,52 @@ export default function App() {
         {hasStarted && (
           <div className="relative z-10 px-6 pb-5 pt-2">
             <div className="composer-enter mx-auto max-w-3xl">
-              <div className="flex items-end gap-2 rounded-3xl border p-2 shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
+              <div className="flex flex-col rounded-3xl border p-2 shadow-sm" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border)" }}>
                 <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border"
-                  style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
-                  aria-label="Attach file"
-                >
-                  <Icon name="plus" className="h-4 w-4" />
-                </button>
+                
                 {attachment && (
-                  <div className="mb-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs" style={{ backgroundColor: "var(--color-panel-raised)" }}>
+                  <div className="mb-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs w-fit" style={{ backgroundColor: "var(--color-panel-raised)" }}>
                     <span className="truncate text-ink-muted">{attachment.filename}</span>
                     <button type="button" onClick={() => setAttachment(null)} className="text-ink-faint hover:text-ink">✕</button>
                   </div>
                 )}
-                <textarea
-                  ref={textareaRef}
-                  className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base leading-[1.6] text-ink outline-none placeholder:text-ink-faint disabled:opacity-60"
-                  rows={1}
-                  placeholder="Ask Airlock AI anything — it stays on this machine."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => submit()}
-                  disabled={loading || !prompt.trim()}
-                  className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
-                  style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
-                >
-                  {loading ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  ) : (
-                    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  )}
-                </button>
+
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border"
+                    style={{ borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}
+                    aria-label="Attach file"
+                  >
+                    <Icon name="plus" className="h-4 w-4" />
+                  </button>
+
+                  <textarea
+                    ref={textareaRef}
+                    className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base leading-[1.6] text-ink outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60"
+                    rows={1}
+                    placeholder="Ask Airlock AI anything — it stays on this machine."
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={loading}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => submit()}
+                    disabled={loading || !prompt.trim()}
+                    className="send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                    style={{ backgroundColor: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+                  >
+                    {loading ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    ) : (
+                      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="M3 10h13M10 3l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <p className="font-mono text-[11px] text-ink-faint">Enter to send · Shift+Enter for a new line</p>
@@ -670,29 +828,11 @@ function Feature({ icon, title, subtitle }) {
   );
 }
 
-function IconPill({ children }) {
-  return (
-    <button type="button" className="flex h-8 w-8 items-center justify-center rounded-xl border transition hover:border-slate-400" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}>
-      {children}
-    </button>
-  );
-}
-
-function TextPill({ icon, label }) {
-  return (
-    <button type="button" className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition hover:border-slate-400" style={{ backgroundColor: "var(--color-panel)", borderColor: "var(--color-border-strong)", color: "var(--color-ink-muted)" }}>
-      <Icon name={icon} className="h-3.5 w-3.5" />
-      {label}
-      <Icon name="chevron" className="h-3 w-3" />
-    </button>
-  );
-}
-
 function StatRow({ icon, label, value }) {
   return (
     <div className="flex items-center justify-between text-ink-muted text-xs">
       <span className="flex items-center gap-1.5">
-        <Icon name={icon === "cpu" ? "monitor" : icon === "ram" ? "box" : "cube"} className="h-3.5 w-3.5" />
+        <Icon name={icon === "cpu" ? "monitor" : icon === "ram" ? "box" : "gpu"} className="h-3.5 w-3.5" />
         {label}
       </span>
       <span className="font-medium text-ink">{value}</span>

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from app.schemas import TaskRequest, TaskResponse
 from app.db import (
     log_task, log_rag_query, get_model_for_task,
     create_session, add_message, maybe_set_title,
+    get_connection
 )
 from app.classifier import classify_task
 from rag.retrieval import answer_rag_query
@@ -16,16 +17,32 @@ GENERAL_SYSTEM_PROMPT = "You are a helpful industrial assistant. Always respond 
 TASK_TYPES_NEEDING_AGENT = {"code", "document"}
 
 @router.post("/task", response_model=TaskResponse)
-def handle_task(req: TaskRequest):
+def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
+    if not user_id or user_id == "undefined":
+        conn = get_connection()
+        default_user = conn.execute("SELECT id FROM users LIMIT 1").fetchone()
+        if default_user:
+            user_id = default_user["id"]
+        else:
+            conn.close()
+            raise HTTPException(status_code=400, detail="No user found. Please register or log in.")
+        conn.close()
+
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
 
-    # --- new: session bookkeeping, doesn't touch classification/routing below ---
-    session_id = req.session_id or create_session()
+    session_id = req.session_id or create_session(user_id)
     maybe_set_title(session_id, req.prompt)
     add_message(session_id, "user", req.prompt, attachment_path=req.attachment_path)
 
-    task_type = classify_task(req.prompt, req.previous_task_type)
+    # Force image task classification if an image file attachment is provided
+    task_type = req.previous_task_type
+    if req.attachment_path and any(req.attachment_path.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
+        task_type = "image"
+    else:
+        task_type = classify_task(req.prompt, req.previous_task_type)
+
+    images_list = [req.attachment_path] if req.attachment_path else None
 
     if task_type == "rag_query":
         try:
@@ -50,9 +67,14 @@ def handle_task(req: TaskRequest):
         log_task(task_type, model_used, req.prompt, response_text)
 
     else:
-        model_used = get_model_for_task(task_type)
+        model_used = get_model_for_task(task_type if task_type in ["image", "code", "document"] else "general")
         try:
-            result = llm_prompt(req.prompt, model_key=model_used, system=GENERAL_SYSTEM_PROMPT)
+            result = llm_prompt(
+                text=req.prompt,
+                model_key=task_type if task_type in ["image", "code", "document"] else model_used,
+                system=GENERAL_SYSTEM_PROMPT,
+                images=images_list
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"LLM query failed: {e}")
 
@@ -61,7 +83,6 @@ def handle_task(req: TaskRequest):
         sources = None
         log_task(task_type, model_used, req.prompt, response_text)
 
-    # --- new: log assistant reply, return session_id ---
     add_message(session_id, "assistant", response_text, task_type, model_used, sources)
 
     return TaskResponse(

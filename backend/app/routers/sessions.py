@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Header
 from app.db import list_sessions, create_session, get_session_messages, delete_session
 import shutil, uuid, os
 
@@ -8,21 +8,29 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/sessions")
-def get_sessions():
-    return list_sessions()
+def get_sessions(user_id: str | None = Header(None)):
+    if not user_id:
+        return []
+    return list_sessions(user_id)
 
 @router.post("/sessions")
-def new_session():
-    session_id = create_session()
+def new_session(user_id: str | None = Header(None)):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID header missing")
+    session_id = create_session(user_id)
     return {"id": session_id, "title": "New chat"}
 
 @router.get("/sessions/{session_id}/messages")
-def get_messages(session_id: str):
-    return get_session_messages(session_id)
+def get_messages(session_id: str, user_id: str | None = Header(None)):
+    if not user_id:
+        return []
+    return get_session_messages(session_id, user_id)
 
 @router.delete("/sessions/{session_id}")
-def remove_session(session_id: str):
-    delete_session(session_id)
+def remove_session(session_id: str, user_id: str | None = Header(None)):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID header missing")
+    delete_session(session_id, user_id)
     return {"deleted": session_id}
 
 @router.post("/upload")
