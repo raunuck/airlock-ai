@@ -4,13 +4,13 @@ from app.schemas import TaskRequest, TaskResponse
 from app.db import (
     log_task, log_rag_query, get_model_for_task,
     create_session, add_message, maybe_set_title,
-    get_connection
+    get_session_history_for_llm, get_connection
 )
 from app.classifier import classify_task
 from app.tools.ocr import BASE_DIR
 from app.tools.docextract import extract_file_content
 from rag.retrieval import answer_rag_query
-from llm_client import prompt as llm_prompt
+from llm_client import chat as llm_chat
 from agent.agentloop import run_agent
 
 router = APIRouter()
@@ -46,6 +46,7 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
     )
 
     session_id = req.session_id or create_session(user_id)
+    history = get_session_history_for_llm(session_id, limit=6)
     maybe_set_title(session_id, prompt_text)
     add_message(session_id, "user", prompt_text, attachment_path=req.attachment_path)
 
@@ -70,9 +71,11 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
             f"User Request: {prompt_text}"
         )
 
+        chat_messages = list(history) + [{"role": "user", "content": augmented_prompt}]
+
         try:
-            result = llm_prompt(
-                text=augmented_prompt,
+            result = llm_chat(
+                messages=chat_messages,
                 model_key=model_used,
                 system=DOCUMENT_SYSTEM_PROMPT,
             )
@@ -98,7 +101,11 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
     elif task_type in {"code"}:
         model_used = get_model_for_task(task_type)
         try:
-            agent_result = run_agent(prompt_text, model_key=model_used)
+            agent_result = run_agent(
+                prompt_text,
+                model_key=model_used,
+                conversation_history=history,
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Agent task failed: {e}")
 
@@ -108,9 +115,10 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
 
     else:
         model_used = get_model_for_task(task_type if task_type in ["code", "document"] else "general")
+        chat_messages = list(history) + [{"role": "user", "content": prompt_text}]
         try:
-            result = llm_prompt(
-                text=prompt_text,
+            result = llm_chat(
+                messages=chat_messages,
                 model_key=task_type if task_type in ["code", "document"] else model_used,
                 system=GENERAL_SYSTEM_PROMPT,
             )
@@ -130,4 +138,4 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
         response=response_text,
         sources=sources,
         session_id=session_id,
-    )
+    )

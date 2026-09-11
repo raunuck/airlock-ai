@@ -129,15 +129,7 @@ export default function App() {
   }, [prompt]);
 
   useEffect(() => {
-    if (!activeUserId) return;
-    fetch("http://localhost:8000/sessions", {
-      headers: { "user_id": activeUserId }
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setSessions(data);
-      })
-      .catch(() => {});
+    refreshSessions();
   }, [activeUserId]);
 
   async function handleAuth(e) {
@@ -172,33 +164,60 @@ export default function App() {
   }
 
   async function refreshSessions() {
-    if (!activeUserId) return;
     try {
-      const r = await fetch("http://localhost:8000/sessions", {
-        headers: { "user_id": activeUserId }
-      });
+      const headers = {};
+      if (activeUserId) {
+        headers["user-id"] = activeUserId;
+        headers["user_id"] = activeUserId;
+      }
+      const r = await fetch("http://localhost:8000/sessions", { headers });
       const data = await r.json();
       if (Array.isArray(data)) setSessions(data);
     } catch {}
   }
 
   async function loadSession(id) {
-    if (!activeUserId) return;
-    const r = await fetch(`http://localhost:8000/sessions/${id}/messages`, {
-      headers: { "user_id": activeUserId }
-    });
-    const msgs = await r.json();
-    setMessages(
-      msgs.map((m) => ({
-        id: nextId(),
-        role: m.role,
-        content: m.content,
-        taskType: m.task_type,
-        modelUsed: m.model_used,
-        sources: m.sources ? JSON.parse(m.sources) : null,
-      }))
-    );
-    setCurrentSessionId(id);
+    try {
+      const headers = {};
+      if (activeUserId) {
+        headers["user-id"] = activeUserId;
+        headers["user_id"] = activeUserId;
+      }
+      const r = await fetch(`http://localhost:8000/sessions/${id}/messages`, { headers });
+      const msgs = await r.json();
+      if (Array.isArray(msgs)) {
+        setMessages(
+          msgs.map((m) => ({
+            id: nextId(),
+            role: m.role,
+            content: m.content,
+            taskType: m.task_type,
+            modelUsed: m.model_used,
+            sources: m.sources ? JSON.parse(m.sources) : null,
+          }))
+        );
+        setCurrentSessionId(id);
+      }
+    } catch {}
+  }
+
+  async function deleteSession(e, id) {
+    e.stopPropagation();
+    try {
+      const headers = {};
+      if (activeUserId) {
+        headers["user-id"] = activeUserId;
+        headers["user_id"] = activeUserId;
+      }
+      await fetch(`http://localhost:8000/sessions/${id}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (currentSessionId === id) {
+        startNewChat();
+      }
+      refreshSessions();
+    } catch {}
   }
 
   function startNewChat() {
@@ -251,12 +270,14 @@ export default function App() {
     setLoading(true);
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      if (activeUserId) {
+        headers["user-id"] = activeUserId;
+        headers["user_id"] = activeUserId;
+      }
       const res = await fetch("http://localhost:8000/task", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "user_id": activeUserId
-        },
+        headers,
         body: JSON.stringify({
           prompt: trimmedPrompt,
           previous_task_type: previousTaskType,
@@ -490,19 +511,31 @@ export default function App() {
             <div className="px-2 py-3 text-xs text-ink-faint italic">No chat history yet</div>
           ) : (
             sessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                onClick={() => loadSession(s.id)}
-                className="w-full truncate rounded-xl px-3 py-2 text-left text-sm transition font-medium"
+                className="group flex items-center justify-between rounded-xl transition"
                 style={
                   s.id === currentSessionId
                     ? { backgroundColor: "var(--color-accent-soft)", color: "var(--color-accent-strong)" }
                     : { color: "var(--color-ink-muted)", backgroundColor: "transparent" }
                 }
               >
-                {s.title || "New chat"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => loadSession(s.id)}
+                  className="flex-1 truncate px-3 py-2 text-left text-sm font-medium"
+                >
+                  {s.title || "New chat"}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => deleteSession(e, s.id)}
+                  className="mr-2 hidden h-5 w-5 items-center justify-center rounded text-xs opacity-60 hover:opacity-100 group-hover:flex"
+                  title="Delete chat"
+                >
+                  ✕
+                </button>
+              </div>
             ))
           )}
         </div>
