@@ -6,3 +6,5 @@ venv/
 .venv
 chroma_db/
 uploads/
+.vercel
+.env*
