@@ -1,3 +1,4 @@
+import os
 import ollama
 from typing import Optional, List
 
@@ -21,6 +22,9 @@ FALLBACK_MODELS = {
 
 DEFAULT_MODEL = "general"
 
+# Check if running in production on Render
+IS_PRODUCTION = os.environ.get("RENDER", False) or os.environ.get("PORT", None) is not None
+
 # --------------------------------------------------
 # Core Ollama chat wrapper
 # --------------------------------------------------
@@ -35,6 +39,19 @@ def chat(
     Sends a chat request to Ollama with automatic fallback to 3B models 
     if a system memory / OOM error occurs, supporting image attachments.
     """
+
+    # If running live on Render, return a clean sandbox evaluation response
+    if IS_PRODUCTION:
+        last_user_msg = "Hello"
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                last_user_msg = m.get("content", "Hello")
+                break
+        
+        return {
+            "content": f"🔒 [Airlock AI Cloud Sandbox Mode]: Received your prompt ('{last_user_msg}'). This cloud instance is deployed for UI and routing evaluation. Heavy on-premise weights (Qwen/Llava) execute 100% locally on dedicated hardware.",
+            "model": "cloud-sandbox-simulation",
+        }
 
     model_name = MODELS.get(model_key, model_key)
     if model_name not in MODELS.values() and model_name not in FALLBACK_MODELS.values() and model_name not in FALLBACK_MODELS:
