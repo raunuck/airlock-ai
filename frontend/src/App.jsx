@@ -118,7 +118,7 @@ export default function App() {
     let isMounted = true;
     const fetchSystemMetrics = async () => {
       try {
-        const res = await fetch(`${API_BASE}/system/resources`);
+        const res = await fetch(`${API_BASE}/system/metrics`);
         if (res.ok && isMounted) {
           const data = await res.json();
           setSystemStats(data);
