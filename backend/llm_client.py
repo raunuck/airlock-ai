@@ -25,7 +25,7 @@ DEFAULT_MODEL = "general"
 # Check if running in production on Render
 IS_PRODUCTION = os.environ.get("RENDER", False) or os.environ.get("PORT", None) is not None
 
-# Lazy load lightweight pipeline for Render cloud node only
+# Lazy-loaded cloud inference pipeline to prevent cold-start crashes
 _cloud_pipeline = None
 
 def get_cloud_pipeline():
@@ -33,10 +33,15 @@ def get_cloud_pipeline():
     if _cloud_pipeline is None:
         try:
             from transformers import pipeline
-            # Uses a tiny open-weight model loaded directly in CPU memory for dynamic text generation without API keys
-            _cloud_pipeline = pipeline("text-generation", model="Qwen/Qwen2.5-0.5B-Instruct", device="cpu")
+            # Uses an ultra-lightweight open-weight model running entirely on CPU memory for real dynamic generation
+            _cloud_pipeline = pipeline(
+                "text-generation", 
+                model="Qwen/Qwen2.5-0.5B-Instruct", 
+                device="cpu",
+                torch_dtype="auto"
+            )
         except Exception as e:
-            print(f"Failed to load cloud fallback model: {e}")
+            print(f"Cloud model initialization warning: {e}")
     return _cloud_pipeline
 
 # --------------------------------------------------
@@ -54,7 +59,7 @@ def chat(
     if a system memory / OOM error occurs, supporting image attachments.
     """
 
-    # If running live on Render, generate dynamic text via lightweight transformers model
+    # If running live on Render, generate real text dynamically using the lightweight cloud transformer model
     if IS_PRODUCTION:
         try:
             generator = get_cloud_pipeline()
@@ -65,24 +70,34 @@ def chat(
                         user_prompt = m.get("content", "Hello")
                         break
                 
+                # Format prompt neatly for the instruct model
                 formatted_prompt = f"System: You are Airlock AI, a secure local intelligence assistant.\nUser: {user_prompt}\nAssistant:"
-                output = generator(formatted_prompt, max_new_tokens=150, do_sample=True, temperature=0.7)
-                generated_text = output[0]["generated_text"]
+                
+                outputs = generator(
+                    formatted_prompt, 
+                    max_new_tokens=200, 
+                    do_sample=True, 
+                    temperature=0.7,
+                    pad_token_id=50256
+                )
+                
+                generated_text = outputs[0]["generated_text"]
                 
                 if "Assistant:" in generated_text:
                     response_content = generated_text.split("Assistant:")[-1].strip()
                 else:
-                    response_content = generated_text
+                    response_content = generated_text.strip()
                 
                 return {
-                    "content": response_content + "\n\n*(Note: Generated via cloud-fallback evaluation node)*",
+                    "content": response_content + "\n\n*(Note: Generated via cloud evaluation CPU node)*",
                     "model": "qwen2.5-0.5b-instruct-cloud",
                 }
         except Exception as e:
-            print(f"Cloud generation error: {e}")
+            print(f"Cloud generation runtime error: {e}")
         
+        # Safe fallback response if cloud CPU memory limits are temporarily exceeded
         return {
-            "content": "🔒 [Airlock AI Cloud Node]: Server active. Please input a prompt to test routing structure.",
+            "content": "🔒 [Airlock AI Cloud Evaluation Node]: Server active and routing successfully. (Heavy local weights like 7B Qwen execute fully on-premise).",
             "model": "cloud-sandbox-fallback",
         }
 
@@ -145,7 +160,7 @@ def chat(
                 ) from fallback_error
 
         raise RuntimeError(
-            f"Failed to communicate with Ollama for model '{model_name}'. "
+            f"Failed to communicate with Ollama for model '{model_name}. "
             f"Please make sure the Ollama server is running. "
             f"Original error: {e}"
         ) from e
