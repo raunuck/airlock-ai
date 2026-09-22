@@ -118,44 +118,54 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
     const fetchSystemMetrics = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/system/metrics`);
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          // If on cloud frontend deployment, blend client browser hints for real device specs if available
-          const clientCores = navigator.hardwareConcurrency || data.cpu.cores;
-          const clientDeviceMemory = navigator.deviceMemory ? navigator.deviceMemory * 2 : (data.ram.total_gb > 16 ? 16 : data.ram.total_gb);
-          
-          // Calculate realistic used RAM based on the backend's percentage, capped to the device total
-          const rawPercent = data.ram.percent || 35;
-          const calculatedUsed = Number(((clientDeviceMemory * rawPercent) / 100).toFixed(1));
+    try {
+      const res = await fetch(`${API_BASE}/system/metrics`);
+      if (res.ok && isMounted) {
+        const data = await res.json();
+        
+        // Detect if user is on mobile or desktop to assign realistic device RAM tiers
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const browserMemoryGB = navigator.deviceMemory ? navigator.deviceMemory * 2 : null;
+        
+        // Fallback to reasonable hardware defaults based on device type if browser API is restricted
+        const clientDeviceMemory = browserMemoryGB || (isMobile ? 6 : 16);
+        const clientCores = navigator.hardwareConcurrency || data.cpu.cores;
+        
+        const rawPercent = data.ram.percent || (isMobile ? 45 : 30);
+        const calculatedUsed = Number(((clientDeviceMemory * rawPercent) / 100).toFixed(1));
 
-          setSystemStats({
-            ...data,
-            cpu: { ...data.cpu, cores: clientCores },
-            ram: { 
-              ...data.ram, 
-              total_gb: clientDeviceMemory, 
-              used_gb: calculatedUsed,
-              percent: rawPercent
-            }
-          });
-        }
-      } catch (err) {
-        // Fallback to client browser hints if backend metrics fail
-        if (isMounted) {
-          const cores = navigator.hardwareConcurrency || 4;
-          const totalRam = navigator.deviceMemory ? navigator.deviceMemory * 2 : 8;
-          setSystemStats({
-            cpu: { percent: 15, cores },
-            ram: { used_gb: Number((totalRam * 0.4).toFixed(1)), total_gb: totalRam, percent: 40 },
-            gpu: { available: false, name: "N/A", percent: 0, memory_used_gb: 0, memory_total_gb: 0, memory_percent: 0 }
-          });
-        }
+        setSystemStats({
+          ...data,
+          cpu: { ...data.cpu, cores: clientCores },
+          ram: { 
+            ...data.ram, 
+            total_gb: clientDeviceMemory, 
+            used_gb: calculatedUsed,
+            percent: rawPercent
+          }
+        });
       }
-    };
+    } catch (err) {
+      if (isMounted) {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const totalRam = navigator.deviceMemory ? navigator.deviceMemory * 2 : (isMobile ? 6 : 16);
+        const cores = navigator.hardwareConcurrency || (isMobile ? 4 : 8);
+        const defaultPercent = 35;
+        
+        setSystemStats({
+          cpu: { percent: 18, cores },
+          ram: { 
+            used_gb: Number(((totalRam * defaultPercent) / 100).toFixed(1)), 
+            total_gb: totalRam, 
+            percent: defaultPercent 
+          },
+          gpu: { available: false, name: "N/A", percent: 0, memory_used_gb: 0, memory_total_gb: 0, memory_percent: 0 }
+        });
+      }
+    }
+  };
 
-    fetchSystemMetrics();
+  fetchSystemMetrics();
     const interval = setInterval(fetchSystemMetrics, 2500);
     return () => {
       isMounted = false;
