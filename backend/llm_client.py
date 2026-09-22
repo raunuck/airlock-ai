@@ -2,10 +2,6 @@ import os
 import ollama
 from typing import Optional, List
 
-# --------------------------------------------------
-# Available local models (with automatic fallback mapping)
-# --------------------------------------------------
-
 MODELS = {
     "general": "qwen2.5:7b",
     "document": "qwen2.5:7b",
@@ -22,32 +18,23 @@ FALLBACK_MODELS = {
 
 DEFAULT_MODEL = "general"
 
-# Check if running in production on Render
-# Gemini api keys are only used for demo deployment, airlock-ai when setup locally does not use any kind of api keys
-IS_PRODUCTION = os.environ.get("RENDER", False) or os.environ.get("PORT", None) is not None
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-
-# --------------------------------------------------
-# Core Chat Wrapper (Cloud API vs Local Ollama)
-# --------------------------------------------------
-
 def chat(
     messages: list[dict[str, any]],
     model_key: str = DEFAULT_MODEL,
     system: Optional[str] = None,
     images: Optional[List[str]] = None,
 ) -> dict:
-    """
-    Routes requests to Gemini API when live on Render, or local Ollama when running on-premise.
-    """
 
-    # If running live on Render, use the Gemini API for instant, real responses
-    if IS_PRODUCTION and GEMINI_API_KEY:
+    # Gemini api keys are only used for demo deployment, airlock-ai when setup locally does not use any kind of api keys
+    
+    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    
+    # If a Gemini API key is configured, use cloud-based Gemini (bypasses local Ollama entirely)
+    if gemini_key:
         try:
             from google import genai
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            client = genai.Client(api_key=gemini_key)
             
-            # Format history/messages for Gemini
             contents = []
             if system:
                 contents.append(f"System Instructions: {system}")
@@ -66,13 +53,10 @@ def chat(
                 "model": "gemini-2.5-flash-cloud",
             }
         except Exception as e:
-            print(f"Gemini API Error: {e}")
+            print(f"Gemini Cloud Error: {e}")
 
-    # ---- Your original local Ollama logic (runs locally on your laptop) ----
+    # Fallback to local Ollama execution (used only when running on your local laptop without a cloud key)
     model_name = MODELS.get(model_key, model_key)
-    if model_name not in MODELS.values() and model_name not in FALLBACK_MODELS.values() and model_name not in FALLBACK_MODELS:
-        pass
-
     final_messages = [dict(m) for m in messages]
 
     if images and final_messages:
@@ -82,52 +66,29 @@ def chat(
                 break
 
     if system:
-        final_messages.insert(
-            0,
-            {
-                "role": "system",
-                "content": system,
-            },
-        )
+        final_messages.insert(0, {"role": "system", "content": system})
 
     try:
-        response = ollama.chat(
-            model=model_name,
-            messages=final_messages,
-        )
-
+        response = ollama.chat(model=model_name, messages=final_messages)
         return {
             "content": response["message"]["content"],
             "model": model_name,
         }
-
     except Exception as e:
-        err_str = str(e).lower()
-        print(f"DEBUG - Ollama error with model '{model_name}': {err_str}")
-        
         fallback_model = FALLBACK_MODELS.get(model_name)
         if fallback_model:
-            print(f"[FALLBACK] Primary model '{model_name}' failed ({e}). Automatically falling back to '{fallback_model}'...")
-            
             try:
-                response = ollama.chat(
-                    model=fallback_model,
-                    messages=final_messages,
-                )
+                response = ollama.chat(model=fallback_model, messages=final_messages)
                 return {
                     "content": response["message"]["content"],
                     "model": fallback_model,
                 }
             except Exception as fallback_error:
-                raise RuntimeError(
-                    f"Failed to communicate with Ollama using primary model '{model_name}' and fallback model '{fallback_model}'. "
-                    f"Primary error: {e} | Fallback error: {fallback_error}"
-                ) from fallback_error
+                raise RuntimeError(f"Ollama local connection failed: {e} | {fallback_error}") from fallback_error
 
         raise RuntimeError(
-            f"Failed to communicate with Ollama for model '{model_name}'. "
-            f"Please make sure the Ollama server is running. "
-            f"Original error: {e}"
+            f"Failed to communicate with Ollama or Cloud API. "
+            f"Please check that GEMINI_API_KEY is set on Render or Ollama is running locally. Error: {e}"
         ) from e
 
 
@@ -137,16 +98,8 @@ def prompt(
     system: Optional[str] = None,
     images: Optional[List[str]] = None,
 ) -> dict:
-    """
-    Shortcut for single user prompt with optional image attachments.
-    """
     return chat(
-        messages=[
-            {
-                "role": "user",
-                "content": text,
-            }
-        ],
+        messages=[{"role": "user", "content": text}],
         model_key=model_key,
         system=system,
         images=images,
