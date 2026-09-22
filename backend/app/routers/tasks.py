@@ -67,15 +67,26 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
             from google import genai
             client = genai.Client(api_key=gemini_key)
             
-            full_img_path = BASE_DIR / req.attachment_path.lstrip("/") if not os.path.isabs(req.attachment_path) else Path(req.attachment_path)
-            if not full_img_path.exists():
-                full_img_path = Path(req.attachment_path)
+            # Resolve file path safely across different upload directory structures
+            cleaned_path = req.attachment_path.lstrip("/")
+            possible_paths = [
+                BASE_DIR / cleaned_path,
+                Path(req.attachment_path),
+                BASE_DIR.parent / cleaned_path,
+                Path("/opt/render/project/src/backend") / cleaned_path,
+                Path("uploads") / Path(req.attachment_path).name
+            ]
+            
+            full_img_path = None
+            for p in possible_paths:
+                if p.exists() and p.is_file():
+                    full_img_path = p
+                    break
 
-            if full_img_path.exists():
+            if full_img_path and full_img_path.exists():
                 with open(full_img_path, "rb") as f:
                     img_bytes = f.read()
 
-                # Determine correct MIME type dynamically
                 ext = full_img_path.suffix.lower()
                 mime_map = {".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp"}
                 mime_type = mime_map.get(ext, "image/jpeg")
@@ -84,7 +95,7 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
                     model="gemini-2.5-flash",
                     contents=[
                         client.types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
-                        f"System Instructions: {DOCUMENT_SYSTEM_PROMPT}\nUser Request: {prompt_text}"
+                        f"Analyze this image and answer the user's request accurately: {prompt_text}"
                     ]
                 )
                 response_text = response.text
@@ -101,9 +112,11 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
                     sources=sources,
                     session_id=session_id,
                 )
+            else:
+                print(f"DEBUG: Attachment path could not be resolved from: {req.attachment_path}")
         except Exception as e:
             print(f"Cloud Vision Error: {e}")
-
+    
     # --- STANDARD LOCAL / FALLBACK PIPELINE ---
     if has_attachment:
         extracted_type, file_content = extract_file_content(req.attachment_path)
