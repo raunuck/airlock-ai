@@ -124,12 +124,21 @@ export default function App() {
           const data = await res.json();
           // If on cloud frontend deployment, blend client browser hints for real device specs if available
           const clientCores = navigator.hardwareConcurrency || data.cpu.cores;
-          const clientDeviceMemory = navigator.deviceMemory ? navigator.deviceMemory * 2 : data.ram.total_gb;
+          const clientDeviceMemory = navigator.deviceMemory ? navigator.deviceMemory * 2 : (data.ram.total_gb > 16 ? 16 : data.ram.total_gb);
           
+          // Calculate realistic used RAM based on the backend's percentage, capped to the device total
+          const rawPercent = data.ram.percent || 35;
+          const calculatedUsed = Number(((clientDeviceMemory * rawPercent) / 100).toFixed(1));
+
           setSystemStats({
             ...data,
             cpu: { ...data.cpu, cores: clientCores },
-            ram: { ...data.ram, total_gb: clientDeviceMemory }
+            ram: { 
+              ...data.ram, 
+              total_gb: clientDeviceMemory, 
+              used_gb: calculatedUsed,
+              percent: rawPercent
+            }
           });
         }
       } catch (err) {
