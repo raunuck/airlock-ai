@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Header
 from app.schemas import TaskRequest, TaskResponse
@@ -57,6 +58,46 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
         task_type = "document"
     else:
         task_type = classify_task(prompt_text, req.previous_task_type)
+
+    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+
+    # Cloud Multimodal Direct Handling for Images (Bypasses missing system tesseract binary on Render)
+    if has_attachment and is_image and gemini_key:
+        try:
+            from google import genai
+            client = genai.Client(api_key=gemini_key)
+            
+            # Resolve full path of attachment
+            full_img_path = BASE_DIR / req.attachment_path.lstrip("/") if not os.path.isabs(req.attachment_path) else Path(req.attachment_path)
+            if not full_img_path.exists():
+                full_img_path = Path(req.attachment_path)
+
+            if full_img_path.exists():
+                with open(full_img_path, "rb") as f:
+                    img_bytes = f.read()
+
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=[
+                        client.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
+                        f"System Instructions: {DOCUMENT_SYSTEM_PROMPT}\nUser Request: {prompt_text}"
+                    ]
+                )
+                response_text = response.text + "\n\n*(Note: Processed via Gemini Vision Cloud Node)*"
+                model_used = "gemini-2.5-flash-cloud"
+                sources = ["Cloud Vision Engine"]
+                log_task(task_type, model_used, prompt_text, response_text)
+                
+                add_message(session_id, "assistant", response_text, task_type, model_used, sources)
+                return TaskResponse(
+                    model_used=model_used,
+                    task_type=task_type,
+                    response=response_text,
+                    sources=sources,
+                    session_id=session_id,
+                )
+        except Exception as e:
+            print(f"Cloud Vision Error, falling back: {e}")
 
     if has_attachment:
         # Extract content from uploaded attachment (docx, pdf, image OCR, text)
@@ -138,4 +179,4 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
         response=response_text,
         sources=sources,
         session_id=session_id,
-    )
+    )
