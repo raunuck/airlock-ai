@@ -1,4 +1,3 @@
-import os
 import ollama
 from typing import Optional, List
 
@@ -22,28 +21,6 @@ FALLBACK_MODELS = {
 
 DEFAULT_MODEL = "general"
 
-# Check if running in production on Render
-IS_PRODUCTION = os.environ.get("RENDER", False) or os.environ.get("PORT", None) is not None
-
-# Lazy-loaded cloud inference pipeline to prevent cold-start crashes
-_cloud_pipeline = None
-
-def get_cloud_pipeline():
-    global _cloud_pipeline
-    if _cloud_pipeline is None:
-        try:
-            from transformers import pipeline
-            # Uses an ultra-lightweight open-weight model running entirely on CPU memory for real dynamic generation
-            _cloud_pipeline = pipeline(
-                "text-generation", 
-                model="Qwen/Qwen2.5-0.5B-Instruct", 
-                device="cpu",
-                torch_dtype="auto"
-            )
-        except Exception as e:
-            print(f"Cloud model initialization warning: {e}")
-    return _cloud_pipeline
-
 # --------------------------------------------------
 # Core Ollama chat wrapper
 # --------------------------------------------------
@@ -58,48 +35,6 @@ def chat(
     Sends a chat request to Ollama with automatic fallback to 3B models 
     if a system memory / OOM error occurs, supporting image attachments.
     """
-
-    # If running live on Render, generate real text dynamically using the lightweight cloud transformer model
-    if IS_PRODUCTION:
-        try:
-            generator = get_cloud_pipeline()
-            if generator:
-                user_prompt = "Hello"
-                for m in reversed(messages):
-                    if m.get("role") == "user":
-                        user_prompt = m.get("content", "Hello")
-                        break
-                
-                # Format prompt neatly for the instruct model
-                formatted_prompt = f"System: You are Airlock AI, a secure local intelligence assistant.\nUser: {user_prompt}\nAssistant:"
-                
-                outputs = generator(
-                    formatted_prompt, 
-                    max_new_tokens=200, 
-                    do_sample=True, 
-                    temperature=0.7,
-                    pad_token_id=50256
-                )
-                
-                generated_text = outputs[0]["generated_text"]
-                
-                if "Assistant:" in generated_text:
-                    response_content = generated_text.split("Assistant:")[-1].strip()
-                else:
-                    response_content = generated_text.strip()
-                
-                return {
-                    "content": response_content + "\n\n*(Note: Generated via cloud evaluation CPU node)*",
-                    "model": "qwen2.5-0.5b-instruct-cloud",
-                }
-        except Exception as e:
-            print(f"Cloud generation runtime error: {e}")
-        
-        # Safe fallback response if cloud CPU memory limits are temporarily exceeded
-        return {
-            "content": "🔒 [Airlock AI Cloud Evaluation Node]: Server active and routing successfully. (Heavy local weights like 7B Qwen execute fully on-premise).",
-            "model": "cloud-sandbox-fallback",
-        }
 
     model_name = MODELS.get(model_key, model_key)
     if model_name not in MODELS.values() and model_name not in FALLBACK_MODELS.values() and model_name not in FALLBACK_MODELS:
@@ -160,7 +95,7 @@ def chat(
                 ) from fallback_error
 
         raise RuntimeError(
-            f"Failed to communicate with Ollama for model '{model_name}. "
+            f"Failed to communicate with Ollama for model '{model_name}'. "
             f"Please make sure the Ollama server is running. "
             f"Original error: {e}"
         ) from e

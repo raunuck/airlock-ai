@@ -6,7 +6,7 @@ import workbenchDark from "./assets/workbench-dark.jpeg";
 
 const PROCESSING_MESSAGES = ["Processing locally…", "Routing to the appropriate model…"];
 const COMPOSER_MAX_HEIGHT = 168;
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const EXAMPLES = [
   { icon: "doc", title: "Summarize a document", subtitle: "Analyze reports, PDFs, logs…" },
   { icon: "code", title: "Explain this code", subtitle: "Get clear, local explanations" },
@@ -118,7 +118,7 @@ export default function App() {
     let isMounted = true;
     const fetchSystemMetrics = async () => {
       try {
-        const res = await fetch(`${API_BASE}/system/metrics`);
+        const res = await fetch("http://localhost:8000/system/resources");
         if (res.ok && isMounted) {
           const data = await res.json();
           setSystemStats(data);
@@ -171,7 +171,7 @@ export default function App() {
     setAuthError("");
     const endpoint = authMode === "login" ? "/auth/login" : "/auth/register";
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`http://localhost:8000${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: authUsername, password: authPassword }),
@@ -204,7 +204,7 @@ export default function App() {
         headers["user-id"] = activeUserId;
         headers["user_id"] = activeUserId;
       }
-      const r = await fetch(`${API_BASE}/sessions`, { headers });
+      const r = await fetch("http://localhost:8000/sessions", { headers });
       const data = await r.json();
       if (Array.isArray(data)) setSessions(data);
     } catch {}
@@ -217,7 +217,7 @@ export default function App() {
         headers["user-id"] = activeUserId;
         headers["user_id"] = activeUserId;
       }
-      const r = await fetch(`${API_BASE}/sessions/${id}/messages`, { headers });
+      const r = await fetch(`http://localhost:8000/sessions/${id}/messages`, { headers });
       const msgs = await r.json();
       if (Array.isArray(msgs)) {
         setMessages(
@@ -243,7 +243,7 @@ export default function App() {
         headers["user-id"] = activeUserId;
         headers["user_id"] = activeUserId;
       }
-      await fetch(`${API_BASE}/sessions/${id}`, {
+      await fetch(`http://localhost:8000/sessions/${id}`, {
         method: "DELETE",
         headers,
       });
@@ -268,7 +268,7 @@ export default function App() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+      const res = await fetch("http://localhost:8000/upload", { method: "POST", body: formData });
       if (!res.ok) {
         const errText = await res.text();
         console.error("Upload failed:", res.status, errText);
@@ -309,7 +309,7 @@ export default function App() {
         headers["user-id"] = activeUserId;
         headers["user_id"] = activeUserId;
       }
-      const res = await fetch(`${API_BASE}/task`, {
+      const res = await fetch("http://localhost:8000/task", {
         method: "POST",
         headers,
         body: JSON.stringify({
