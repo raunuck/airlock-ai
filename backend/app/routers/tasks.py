@@ -65,9 +65,10 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
     if has_attachment and is_image and gemini_key:
         try:
             from google import genai
+            from google.genai import types
+            
             client = genai.Client(api_key=gemini_key)
             
-            # Resolve file path safely across different upload directory structures
             cleaned_path = req.attachment_path.lstrip("/")
             possible_paths = [
                 BASE_DIR / cleaned_path,
@@ -94,7 +95,7 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
                     contents=[
-                        client.types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                        types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
                         f"Analyze this image and answer the user's request accurately: {prompt_text}"
                     ]
                 )
@@ -112,11 +113,9 @@ def handle_task(req: TaskRequest, user_id: str | None = Header(None)):
                     sources=sources,
                     session_id=session_id,
                 )
-            else:
-                print(f"DEBUG: Attachment path could not be resolved from: {req.attachment_path}")
         except Exception as e:
             print(f"Cloud Vision Error: {e}")
-    
+
     # --- STANDARD LOCAL / FALLBACK PIPELINE ---
     if has_attachment:
         extracted_type, file_content = extract_file_content(req.attachment_path)
