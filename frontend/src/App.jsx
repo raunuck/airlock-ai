@@ -743,7 +743,7 @@ export default function App() {
         {/* Scrollable Body Area */}
         <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden w-full px-4 sm:px-0">
           {!hasStarted ? (
-            <div className="flex min-h-full w-full relative pb-12 items-center justify-center">
+            <div className="flex min-h-full w-full relative pb-12">
               <div className="flex w-full max-w-[920px] flex-col justify-center px-2 sm:px-12">
                 <h1 className="fade-in-up text-3xl sm:text-[48px] font-semibold leading-[1.08] tracking-tight text-ink drop-shadow-md">
                   Your Ideas.
@@ -837,7 +837,7 @@ export default function App() {
               </div>
 
               <div className="hidden flex-1 relative lg:block pointer-events-none">
-                <div className="absolute right-[70 rem] top-25 font-mono text-l uppercase tracking-widest text-ink drop-shadow-md">
+                <div className="absolute right-10 top-10 font-mono text-sm uppercase tracking-widest text-ink drop-shadow-md">
                   <div>Local</div>
                   <div>Inference</div>
                   <div>Real</div>
