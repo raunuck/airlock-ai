@@ -242,12 +242,12 @@ Airlock AI comes configured with production workflows for industrial operations:
 
 | Name | Role | GitHub |
 | :--- | :--- | :--- |
-| **Raunak** | Backend & Infrastructure | [@username](https://github.com/raunuck) |
-| **Arya** | GenAI & Model Integration | [@username](https://github.com/Arya-1706) |
-| **Viral** | Full-Stack & Agent Tooling | [@username](https://github.com/viralByte) |
-| **Avni** | RAG & Retrieval | [@username](https://github.com/avnijain2710-codes) |
-| **Parnika** | GenAI & Agent Orchestration | [@username](https://github.com/parnikalil) |
-| **Sarthak** | Frontend & Agent Systems | [@username](https://github.com/sarthak-debugs) |
+| **Raunak** | Backend & Infrastructure | [@raunuck](https://github.com/raunuck) |
+| **Arya** | GenAI & Model Integration | [@Arya-1706](https://github.com/Arya-1706) |
+| **Viral** | Full-Stack & Agent Tooling | [@viralByte](https://github.com/viralByte) |
+| **Avni** | RAG & Retrieval | [@avnijain2710-codes](https://github.com/avnijain2710-codes) |
+| **Parnika** | GenAI & Agent Orchestration | [@parnikalil](https://github.com/parnikalil) |
+| **Sarthak** | Frontend & Agent Systems | [@sarthak-debugs](https://github.com/sarthak-debugs) |
 
 ---
 
