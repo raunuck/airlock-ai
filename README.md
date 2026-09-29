@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![SIH 2026 Submission](https://img.shields.io/badge/SIH%202026-Final%20Submission-orange?style=flat-square)](https://www.sih.gov.in/)
-[![Air-Gap Isolation](https://img.shields.io/badge/Air--Gap-Verified%20Zero%20Egress-success?style=flat-square&logo=shield)](docs/screenshots/proof_panel.png)
+[![Air-Gap Isolation](https://img.shields.io/badge/Air--Gap-Verified%20Zero%20Egress-success?style=flat-square&logo=shield)](docs/screenshots/dashboard.png)
 [![Python 3.13+](https://img.shields.io/badge/Python-3.13%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![React 19](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Isolated%20Containers-2496ed?style=flat-square&logo=docker)](https://www.docker.com/)
@@ -131,25 +131,11 @@ flowchart LR
 
 ---
 
-## Dashboard & Demo
+## Workbench Interface
 
-<!-- NOTE: Replace docs/screenshots/* placeholder paths with actual UI captures prior to final evaluation -->
-
-### 1. Unified Sovereign Workbench
 ![Airlock AI Sovereign Workbench Interface](docs/screenshots/dashboard.png)
-*Unified multi-model workspace featuring real-time hardware telemetry (CPU, RAM, GPU), dynamic prompt categorization, and air-gapped status indicators.*
 
-### 2. Live Network Isolation Proof Panel
-![Live Network Proof Panel](docs/screenshots/proof_panel.png)
-*Real-time proof panel displaying live socket monitors and packet capture traces confirming zero outbound WAN traffic and 100% on-premise execution.*
-
-### 3. Agent Execution Trace & Tool Inspector
-![Agentic Execution Trace & Tool Call Inspector](docs/screenshots/agent_trace.png)
-*Granular step-by-step ReAct agent trace visualizing plan formulation, tool parameters, intermediate sandbox outputs, and self-correction steps.*
-
-### 4. Enterprise Production Deliverable
-![Sample Generated Deliverable](docs/screenshots/generated_deliverable.png)
-*Production-ready formal inspection and approval note (.docx) generated entirely offline with structured tables, executive summaries, and clearance signoffs.*
+*The Airlock AI Workbench: A unified local workspace designed for confidential industrial operations, featuring real-time hardware resource telemetry (CPU, RAM, GPU), live air-gapped status verification, and automatic prompt routing.*
 
 ---
 
