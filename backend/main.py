@@ -33,5 +33,5 @@ app.include_router(system_router)
 app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
 
 @app.get("/health")
-def health():
+def health_check():
     return {"status": "ok"}
